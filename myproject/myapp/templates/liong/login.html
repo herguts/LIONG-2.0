@@ -4,9 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Super Admin Login</title>
+  <title>Login / Register - Liong Garment</title>
 
-  <link rel="stylesheet" href="{% static 'css/admin-style.css' %}">
+  <!-- Bootstrap for quick styling -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 
   <style>
@@ -17,25 +18,34 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
       color: #fff;
     }
 
-    .login-page {
-      display: flex;
-      width: 900px;
-      max-width: 95%;
+    .login-container {
+      width: 100%;
+      max-width: 900px;
+      margin: 20px;
+    }
+
+    .login-card {
       background: rgba(255, 255, 255, 0.08);
       border-radius: 20px;
       backdrop-filter: blur(16px);
       box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+      overflow: hidden;
     }
 
-    /* LEFT SIDE */
+    .login-row {
+      display: flex;
+      min-height: 600px;
+    }
+
+    /* LEFT SIDE - Branding */
     .login-left {
       flex: 1;
-      padding: 40px;
-      border-right: 1px solid rgba(255,255,255,0.1);
+      padding: 50px 40px;
+      background: rgba(0, 0, 0, 0.2);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -43,124 +53,490 @@
       text-align: center;
     }
 
-    .login-left img.brand-logo { width: 120px; margin-bottom: 10px; }
-    .brand-text { font-size: 26px; font-weight: 700; margin-bottom: 10px; }
-    .login-left p { opacity: 0.9; }
-
-    /* RIGHT SIDE */
-    .login-container {
-      flex: 1;
-      padding: 40px;
+    .brand-logo {
+      width: 140px;
+      margin-bottom: 20px;
     }
 
-    .login-container h2 { margin-bottom: 20px; font-size: 28px; font-weight: 600; }
+    .brand-text {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      background: linear-gradient(45deg, #fff, #00c853);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
 
-    .login-container form {
+    .login-left p {
+      opacity: 0.9;
+      font-size: 16px;
+      max-width: 300px;
+    }
+
+    /* RIGHT SIDE - Forms */
+    .login-right {
+      flex: 1;
+      padding: 50px 40px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
     }
 
-    .login-container label { font-size: 14px; font-weight: 600; }
-    .login-container input {
-      padding: 10px 12px;
-      font-size: 14px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      outline: none;
-      width: 92%;
-    }
-
-    .login-container button {
-      margin-top: 10px;
-      padding: 10px;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      cursor: pointer;
-      background: #00c853;
-      color: #fff;
-      transition: 0.3s;
-      font-weight: 600;
-    }
-
-    .login-container button:hover { background: #03b34a; }
-
-    /* MESSAGES */
-    .message {
+    /* Form Tabs */
+    .form-tabs {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      padding: 12px 15px;
-      border-radius: 8px;
-      margin-bottom: 15px;
-      opacity: 0;
-      animation: fadeSlide 0.5s forwards;
+      margin-bottom: 30px;
+      border-bottom: 2px solid rgba(255,255,255,0.1);
     }
 
-    .message.success { background: #d6f5dd; color: #18753c; }
-    .message.error { background: #ffe1e1; color: #b11a1a; }
+    .tab-btn {
+      flex: 1;
+      padding: 15px;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      border-bottom: 3px solid transparent;
+    }
 
-    @keyframes fadeSlide {
-      from { opacity: 0; transform: translateY(-8px); }
+    .tab-btn.active {
+      color: #00c853;
+      border-bottom: 3px solid #00c853;
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: #fff;
+    }
+
+    /* Form Content */
+    .form-content h2 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 25px;
+    }
+
+    .form-section {
+      display: none;
+      animation: fadeIn 0.5s;
+    }
+
+    .form-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* RESPONSIVE */
-    @media (max-width: 900px) {
-      .login-page { flex-direction: column; }
-      .login-left { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.2); padding: 25px; }
+    /* Form Styles */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 15px;
+      font-size: 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      transition: all 0.3s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #00c853;
+      box-shadow: 0 0 0 3px rgba(0, 200, 83, 0.2);
+    }
+
+    .form-control::placeholder {
+      color: rgba(255,255,255,0.5);
+    }
+
+    select.form-control {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23ffffff' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 15px center;
+      background-size: 16px;
+      padding-right: 40px;
+    }
+
+    /* Buttons */
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: #00c853;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+
+    .btn-submit:hover {
+      background: #03b34a;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 200, 83, 0.3);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    /* Messages */
+    .message {
+      padding: 12px 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideDown 0.5s;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.success {
+      background: rgba(214, 245, 221, 0.9);
+      color: #18753c;
+      border-left: 4px solid #00c853;
+    }
+
+    .message.error {
+      background: rgba(255, 225, 225, 0.9);
+      color: #b11a1a;
+      border-left: 4px solid #dc3545;
+    }
+
+    .message.info {
+      background: rgba(209, 236, 241, 0.9);
+      color: #0c5460;
+      border-left: 4px solid #17a2b8;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .login-row {
+        flex-direction: column;
+        min-height: auto;
+      }
+      
+      .login-left, .login-right {
+        padding: 30px 20px;
+      }
+      
+      .login-left {
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+      
+      .brand-text {
+        font-size: 28px;
+      }
+    }
+
+    /* Helper Text */
+    .helper-text {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-top: 5px;
+      display: block;
+    }
+
+    /* Password toggle */
+    .password-toggle {
+      position: relative;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
     }
   </style>
 </head>
 
 <body>
-  <div class="login-page">
-    <div class="login-left">
-      <img src="{% static 'images/logo.png' %}" alt="Logo" class="brand-logo">
-      <div class="brand-text">LIONG GARMENT</div>
-      <p>Welcome back! Please login to your account.</p>
-    </div>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-row">
+        <!-- Left Side - Branding -->
+        <div class="login-left">
+          <img src="{% static 'images/logo.png' %}" alt="Liong Garment Logo" class="brand-logo">
+          <div class="brand-text">LIONG GARMENT</div>
+          <p>Professional Management System for garment manufacturing and inventory control.</p>
+          
+          {% if messages %}
+            {% for message in messages %}
+              {% if 'registered' in message.tags or message.tags == 'info' %}
+              <div class="message {{ message.tags }}">
+                {% if message.tags == 'success' %}
+                  <i class="fas fa-check-circle"></i>
+                {% elif message.tags == 'error' %}
+                  <i class="fas fa-exclamation-circle"></i>
+                {% else %}
+                  <i class="fas fa-info-circle"></i>
+                {% endif %}
+                {{ message }}
+              </div>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        </div>
 
-    <div class="login-container">
-      <h2>Login</h2>
-
-      <!-- Messages -->
-      {% if messages %}
-        {% for message in messages %}
-          <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
-            {% if message.tags == 'error' %}
-              <i class="fa-solid fa-circle-exclamation"></i>
-            {% elif message.tags == 'success' %}
-              <i class="fa-solid fa-circle-check"></i>
-            {% endif %}
-            {{ message }}
+        <!-- Right Side - Forms -->
+        <div class="login-right">
+          <!-- Form Tabs -->
+          <div class="form-tabs">
+            <button class="tab-btn active" id="loginTab" data-tab="login">
+              <i class="fas fa-sign-in-alt me-2"></i> Login
+            </button>
+            <button class="tab-btn" id="registerTab" data-tab="register">
+              <i class="fas fa-user-plus me-2"></i> Register
+            </button>
           </div>
 
-          <!-- Redirect only on success -->
-          {% if message.tags == 'success' %}
-            <script>
-              setTimeout(() => {
-                window.location.href = "{% url 'dashboard' %}";
-              }, 1500);
-            </script>
-          {% endif %}
-        {% endfor %}
-      {% endif %}
+          <!-- Form Content -->
+          <div class="form-content">
+            
+            {% if messages %}
+              {% for message in messages %}
+                {% if 'registered' not in message.tags and message.tags != 'info' %}
+                <div class="message {{ message.tags }}">
+                  {% if message.tags == 'success' %}
+                    <i class="fas fa-check-circle"></i>
+                  {% elif message.tags == 'error' %}
+                    <i class="fas fa-exclamation-circle"></i>
+                  {% else %}
+                    <i class="fas fa-info-circle"></i>
+                  {% endif %}
+                  {{ message }}
+                </div>
+                {% endif %}
+              {% endfor %}
+            {% endif %}
 
-      <!-- Form -->
-      <form method="POST">
-        {% csrf_token %}
-        <label>Email:</label>
-        <input type="text" name="email" placeholder="Enter email" required>
+            <!-- Login Form -->
+            <div id="loginForm" class="form-section active">
+              <h2>Welcome Back</h2>
+              <form method="POST" action="{% url 'admin_login' %}">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="login">
+                
+                <div class="form-group">
+                  <label class="form-label">Email Address</label>
+                  <input type="email" name="email" class="form-control" 
+                         placeholder="Enter your email" required
+                         value="{% if request.GET.email %}{{ request.GET.email }}{% endif %}">
+                </div>
 
-        <label>Password:</label>
-        <input type="password" name="password" placeholder="Enter password" required>
+                <div class="form-group password-toggle">
+                  <label class="form-label">Password</label>
+                  <input type="password" name="password" id="loginPassword" 
+                         class="form-control" placeholder="Enter your password" required>
+                  <button type="button" class="toggle-password" onclick="togglePassword('loginPassword', this)">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                </div>
 
-        <button type="submit">Login</button>
-      </form>
+                <button type="submit" class="btn-submit">
+                  <i class="fas fa-sign-in-alt me-2"></i> Login to Account
+                </button>
+                
+                <p class="text-center mt-3" style="opacity: 0.8;">
+                  Don't have an account? <a href="#" onclick="switchToRegister()" class="text-warning">Register here</a>
+                </p>
+              </form>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="form-section">
+              <h2>Create New Account</h2>
+              <form method="POST" action="{% url 'register' %}">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="register">
+                
+                <div class="form-group">
+                  <label class="form-label">Full Name</label>
+                  <input type="text" name="name" class="form-control" 
+                         placeholder="Enter your full name" required>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Email Address</label>
+                  <input type="email" name="email" class="form-control" 
+                         placeholder="Enter your email" required>
+                  <span class="helper-text">This will be used for login and notifications</span>
+                </div>
+
+                <div class="form-group password-toggle">
+                  <label class="form-label">Password</label>
+                  <input type="password" name="password" id="registerPassword" 
+                         class="form-control" placeholder="Create a password" required>
+                  <button type="button" class="toggle-password" onclick="togglePassword('registerPassword', this)">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <span class="helper-text">Must be at least 6 characters long</span>
+                </div>
+
+                <div class="form-group password-toggle">
+                  <label class="form-label">Confirm Password</label>
+                  <input type="password" name="confirm_password" id="confirmPassword" 
+                         class="form-control" placeholder="Confirm your password" required>
+                  <button type="button" class="toggle-password" onclick="togglePassword('confirmPassword', this)">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Account Type</label>
+                  <select name="role" class="form-control" required>
+                    <option value="" disabled selected>Select your role</option>
+                    <option value="employee">Employee</option>
+                    <option value="inventory_admin" disabled>Inventory Admin</option>
+                  </select>
+                  <span class="helper-text">Only employee accounts can be self-registered</span>
+                </div>
+
+                <button type="submit" class="btn-submit btn-secondary">
+                  <i class="fas fa-user-plus me-2"></i> Create Account
+                </button>
+                
+                <div class="mt-3 p-3" style="background: rgba(255,255,255,0.05); border-radius: 8px;">
+                  <small class="d-block">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Your account will need to be approved by an administrator before you can login.
+                  </small>
+                  <small class="d-block mt-1">
+                    <i class="fas fa-clock me-1"></i>
+                    Approval usually takes 1-2 business days.
+                  </small>
+                </div>
+                
+                <p class="text-center mt-3" style="opacity: 0.8;">
+                  Already have an account? <a href="#" onclick="switchToLogin()" class="text-warning">Login here</a>
+                </p>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
+  <script>
+    // Tab switching functionality
+    function switchTab(tabName) {
+      // Update active tab button
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabName) {
+          btn.classList.add('active');
+        }
+      });
+      
+      // Show active form
+      document.querySelectorAll('.form-section').forEach(section => {
+        section.classList.remove('active');
+      });
+      document.getElementById(tabName + 'Form').classList.add('active');
+    }
+
+    // Helper functions for switching tabs
+    function switchToRegister() {
+      switchTab('register');
+    }
+    
+    function switchToLogin() {
+      switchTab('login');
+    }
+
+    // Initialize event listeners
+    document.getElementById('loginTab').addEventListener('click', () => switchTab('login'));
+    document.getElementById('registerTab').addEventListener('click', () => switchTab('register'));
+
+    // Password toggle function
+    function togglePassword(inputId, button) {
+      const input = document.getElementById(inputId);
+      const icon = button.querySelector('i');
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+
+    // Auto-switch to register if URL has show=register
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('show') === 'register') {
+      switchTab('register');
+    }
+    
+    // Auto-fill email if provided in URL
+    const emailParam = urlParams.get('email');
+    if (emailParam) {
+      document.querySelector('input[name="email"]').value = emailParam;
+    }
+
+    // Auto-show success message if redirected after registration
+    if (urlParams.get('registered') === 'true') {
+      setTimeout(() => switchTab('login'), 100);
+    }
+
+    // Form validation
+    document.querySelectorAll('form').forEach(form => {
+      form.addEventListener('submit', function(e) {
+        // Check password match for registration
+        if (this.querySelector('input[name="confirm_password"]')) {
+          const password = this.querySelector('input[name="password"]').value;
+          const confirmPassword = this.querySelector('input[name="confirm_password"]').value;
+          
+          if (password !== confirmPassword) {
+            e.preventDefault();
+            alert('Passwords do not match!');
+            return false;
+          }
+          
+          if (password.length < 6) {
+            e.preventDefault();
+            alert('Password must be at least 6 characters long!');
+            return false;
+          }
+        }
+      });
+    });
+  </script>
 </body>
 </html>

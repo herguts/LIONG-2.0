@@ -1,0 +1,422 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIONG | Ready for Pickup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body class="bg-gray-50">
+
+<inventory-sidebar></inventory-sidebar>
+
+<main class="main-content">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Ready for Pickup</h1>
+        <div class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border">
+            <i class="fas fa-boxes mr-1"></i>
+            {{ current_admin.role|title }} • Inventory
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="mb-6">
+        {% for message in messages %}
+        <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800 border border-yellow-200{% elif message.tags == 'info' %}bg-blue-100 text-blue-800 border border-blue-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                    {{ message }}
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Header Info -->
+    <div class="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-hand-paper text-purple-600 text-xl mr-3"></i>
+            <div>
+                <h3 class="font-semibold text-purple-800">Requisitions Ready for Pickup</h3>
+                <p class="text-purple-600 text-sm">Mark items as ready for employee pickup and complete the fulfillment process</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <!-- Total Ready -->
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-purple-100 rounded-lg">
+                    <i class="fas fa-hand-paper text-purple-600"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-gray-600">Ready for Pickup</p>
+                    <p class="text-xl font-bold text-gray-800">
+                        {% with ready_count=0 %}
+                            {% for req in requisitions %}
+                                {% if req.status == 'Ready for Pickup' %}
+                                    {% with ready_count=ready_count|add:1 %}{% endwith %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ requisitions|length }}
+                        {% endwith %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Awaiting Pickup -->
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-blue-100 rounded-lg">
+                    <i class="fas fa-clock text-blue-600"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-gray-600">Awaiting Pickup</p>
+                    <p class="text-xl font-bold text-gray-800">
+                        {% with ready_pickup=0 %}
+                            {% for req in requisitions %}
+                                {% if req.status == 'Ready for Pickup' %}
+                                    {% with ready_pickup=ready_pickup|add:1 %}{% endwith %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ ready_pickup }}
+                        {% endwith %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Available Stock -->
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-green-100 rounded-lg">
+                    <i class="fas fa-boxes text-green-600"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-gray-600">Approved</p>
+                    <p class="text-xl font-bold text-gray-800">
+                        {% with approved_count=0 %}
+                            {% for req in requisitions %}
+                                {% if req.status == 'Approved' %}
+                                    {% with approved_count=approved_count|add:1 %}{% endwith %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ approved_count }}
+                        {% endwith %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Fulfilled Today -->
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-orange-100 rounded-lg">
+                    <i class="fas fa-check-circle text-orange-600"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-gray-600">Pending Purchase</p>
+                    <p class="text-xl font-bold text-gray-800">
+                        {% with pending_purchase=0 %}
+                            {% for req in requisitions %}
+                                {% if req.status == 'Pending Purchase' %}
+                                    {% with pending_purchase=pending_purchase|add:1 %}{% endwith %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ pending_purchase }}
+                        {% endwith %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requisitions Table -->
+    <div class="overflow-x-auto bg-white rounded-xl shadow-md p-6">
+        {% if requisitions %}
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Req. ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Requested</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Available</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for req in requisitions %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <span class="font-semibold">#{{ req.requisition_id }}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="font-medium">{{ req.employee.employee_name }}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        {{ req.date_requested|date:"M d, Y" }}
+                        <div class="text-xs text-gray-500">{{ req.date_requested|time:"H:i" }}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        {% with items=req.requisition_item_set.all %}
+                            {% for item in items|slice:":2" %}
+                                <div class="mb-1">
+                                    <span class="font-medium">{{ item.product.name }}</span>
+                                    <span class="text-sm text-gray-600">
+                                        ({{ item.approved_qty|default:item.quantity }} {{ item.product.unit }})
+                                    </span>
+                                </div>
+                            {% endfor %}
+                            {% if items.count > 2 %}
+                                <span class="text-sm text-gray-500">+{{ items.count|add:"-2" }} more</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-3 py-1 rounded-full text-xs font-medium 
+                            {% if req.status == 'Ready for Pickup' %}bg-purple-100 text-purple-800
+                            {% elif req.status == 'Approved' %}bg-green-100 text-green-800
+                            {% elif req.status == 'Partially Approved – Pending Purchase' %}bg-yellow-100 text-yellow-800
+                            {% elif req.status == 'Pending Purchase' %}bg-orange-100 text-orange-800
+                            {% elif req.status == 'Purchased' %}bg-blue-100 text-blue-800
+                            {% elif req.status == 'Fulfilled' %}bg-gray-100 text-gray-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ req.status }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        {% with items=req.requisition_item_set.all %}
+                            {% if items %}
+                                {% with first_item=items.first %}
+                                    {% with product=first_item.product %}
+                                        {% with inv_balance=product.inventorybalance_set.first %}
+                                            {% if inv_balance %}
+                                                <span class="{% if inv_balance.quantity_unit >= first_item.approved_qty|default:first_item.quantity %}text-green-600{% else %}text-red-600{% endif %}">
+                                                    {{ inv_balance.quantity_unit|default:0 }} {{ product.unit }}
+                                                </span>
+                                                <div class="text-xs text-gray-500">
+                                                    Needed: {{ first_item.approved_qty|default:first_item.quantity }}
+                                                </div>
+                                            {% else %}
+                                                <span class="text-red-600">No stock record</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endwith %}
+                                {% endwith %}
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col space-y-2">
+                            {% if req.status == 'Ready for Pickup' %}
+                                <!-- Complete Pickup Button -->
+                                <form method="POST" action="{% url 'complete_pickup' req.requisition_id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" 
+                                            onclick="return confirm('Confirm employee has picked up requisition #{{ req.requisition_id }}?\\n\\nStock will be marked as ISSUED.')"
+                                            class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm w-full">
+                                        <i class="fas fa-check-circle mr-1"></i> Complete Pickup
+                                    </button>
+                                </form>
+                                
+                                <!-- Cancel Pickup Button -->
+                                <form method="POST" action="{% url 'cancel_pickup' req.requisition_id %}">
+                                    {% csrf_token %}
+                                    <button onclick="openCancelModal('{{ req.requisition_id }}', '{{ req.employee.employee_name }}')"
+                                            class="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm w-full">
+                                        <i class="fas fa-times-circle mr-1"></i> Cancel Pickup
+                                    </button>
+                                </form>
+                                
+                                <div class="text-xs text-center text-gray-500 mt-1">
+                                    <i class="fas fa-info-circle mr-1"></i> Stock reserved for pickup
+                                </div>
+                                
+                            {% elif req.status == 'Approved' or req.status == 'Partially Approved – Pending Purchase' or req.status == 'Pending Purchase' or req.status == 'Purchased' %}
+                                <!-- Mark as Ready Button (Reserves Stock) -->
+                                <form method="POST" action="{% url 'mark_ready_for_pickup' req.requisition_id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" 
+                                            onclick="return confirm('Mark requisition #{{ req.requisition_id }} as Ready for Pickup?\\n\\nStock will be RESERVED for employee {{ req.employee.employee_name }}.')"
+                                            class="px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm w-full">
+                                        <i class="fas fa-box mr-1"></i> Mark Ready (Reserve Stock)
+                                    </button>
+                                    <div class="text-xs text-center text-gray-500 mt-1">
+                                        Will reserve stock for employee
+                                    </div>
+                                </form>
+                            {% elif req.status == 'Fulfilled' %}
+                                <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs text-center">
+                                    <i class="fas fa-check mr-1"></i> Completed
+                                </span>
+                            {% endif %}
+                            
+                            <!-- View Details Button -->
+                            <button onclick="openModal('{{ req.requisition_id }}')"
+                                    class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm w-full">
+                                <i class="fas fa-eye mr-1"></i> View Details
+                            </button>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if req.status == 'Ready for Pickup' %}
+                            {% with stock_outs=req.stockout_set.all %}
+                                {% if stock_outs %}
+                                    {% for stock_out in stock_outs|slice:":1" %}
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium 
+                                            {% if stock_out.status == 'reserved' %}bg-yellow-100 text-yellow-800
+                                            {% elif stock_out.status == 'issued' %}bg-green-100 text-green-800
+                                            {% elif stock_out.status == 'cancelled' %}bg-red-100 text-red-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ stock_out.status|title }}
+                                        </span>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            {{ stock_out.purpose|truncatechars:30 }}
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-gray-400 text-sm">-</span>
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <span class="text-gray-400 text-sm">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="text-center py-12">
+            <i class="fas fa-hand-paper text-5xl text-gray-300 mb-4"></i>
+            <p class="text-gray-500 text-lg font-medium">No requisitions ready for pickup</p>
+            <p class="text-gray-400 text-sm mt-2">Approved requisitions with available stock will appear here.</p>
+            <a href="{% url 'inventory_dashboard' %}" class="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <i class="fas fa-arrow-left mr-1"></i> Back to Dashboard
+            </a>
+        </div>
+        {% endif %}
+        
+        {% if requisitions %}
+        <div class="mt-6 pt-4 border-t">
+            <div class="flex justify-between items-center text-sm text-gray-600">
+                <div>
+                    Showing <span class="font-medium">{{ requisitions|length }}</span> requisitions
+                </div>
+                <div class="text-sm">
+                    Last updated: {% now "M d, Y H:i" %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</main>
+
+<!-- Modal for requisition details -->
+<div id="reqModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-800">Requisition Details</h2>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <div id="modalContent">
+            <!-- AJAX loads content here -->
+        </div>
+
+        <div class="mt-6 flex justify-end">
+            <button onclick="closeModal()" 
+                class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openModal(reqId) {
+    fetch(`/inventory-requisition/view/${reqId}/`)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById("modalContent").innerHTML = html;
+            document.getElementById("reqModal").classList.remove("hidden");
+        })
+        .catch(error => {
+            console.error('Error loading modal:', error);
+            document.getElementById("modalContent").innerHTML = 
+                '<div class="text-red-500 p-4">Error loading requisition details.</div>';
+        });
+}
+
+function closeModal() {
+    document.getElementById("reqModal").classList.add("hidden");
+    document.getElementById("modalContent").innerHTML = '';
+}
+
+// Close modal when clicking outside
+document.getElementById('reqModal').addEventListener('click', function(e) {
+    if (e.target.id === 'reqModal') {
+        closeModal();
+    }
+});
+
+// Auto-remove messages after 5 seconds
+setTimeout(function() {
+    const messages = document.querySelectorAll('.p-4.rounded-lg');
+    messages.forEach(function(message) {
+        message.style.transition = 'opacity 0.5s';
+        message.style.opacity = '0';
+        setTimeout(() => message.remove(), 500);
+    });
+}, 5000);
+
+// Initialize feather icons
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof feather !== 'undefined') {
+        feather.replace();
+    }
+});
+</script>
+
+<script src="{% static 'js/inventory_dashboard.js' %}"></script>
+
+<style>
+    .main-content {
+        margin-left: 250px;
+        padding: 30px;
+        min-height: 100vh;
+        box-sizing: border-box;
+    }
+    
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+            padding: 20px;
+        }
+    }
+    
+    table td, table th {
+        color: black !important;
+    }
+    
+    /* Custom split filter for Django template */
+   
+</style>
+</body>
+</html>

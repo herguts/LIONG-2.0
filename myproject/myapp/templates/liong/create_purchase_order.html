@@ -1,0 +1,257 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIONG | Create Purchase Order</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        body {
+        margin: 0;
+        font-family: 'Poppins', sans-serif;
+        background: linear-gradient(135deg, #9722be, #1e1e2d);
+        color: #000000;
+        min-height: 100vh;
+    }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+     <inventory-sidebar></inventory-sidebar>
+
+<!-- Assuming you have a sidebar component -->
+<div class="flex">
+    <!-- Sidebar placeholder - make sure this matches your actual sidebar -->
+    <div class="sidebar">
+        <!-- Your sidebar content here -->
+    </div>
+
+    <main class="main-content flex-1">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Create Purchase Orders</h1>
+            <div class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border">
+                <i class="fas fa-shopping-cart mr-1"></i>
+                {{ current_admin.role|title }} • Purchasing
+            </div>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="mb-6">
+            {% for message in messages %}
+            <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800 border border-yellow-200{% elif message.tags == 'info' %}bg-blue-100 text-blue-800 border border-blue-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                        {{ message }}
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Header Info -->
+        <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div class="flex items-center">
+                <i class="fas fa-file-invoice-dollar text-green-600 text-xl mr-3"></i>
+                <div>
+                    <h3 class="font-semibold text-green-800">Approved Purchase Requests</h3>
+                    <p class="text-green-600 text-sm">Create purchase orders from approved purchase requests</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Approved Purchase Requests -->
+        <div class="space-y-6">
+            {% for pr in approved_requests %}
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">PR-{{ pr.request_id }}</h3>
+                        <p class="text-sm text-gray-600">From Requisition #{{ pr.requisition.requisition_id }} • Approved on {{ pr.approval_date|date:"M d, Y" }}</p>
+                    </div>
+                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                        Approved
+                    </span>
+                </div>
+                
+                <!-- Items Table -->
+                <div class="mb-4 overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity to Purchase</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estimated Price</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for item in pr.purchaserequestitem_set.all %}
+                            <tr>
+                                <td class="px-4 py-3">{{ item.product.name }}</td>
+                                <td class="px-4 py-3">{{ item.product.unit }}</td>
+                                <td class="px-4 py-3 font-medium">{{ item.quantity_to_purchase }}</td>
+                                <td class="px-4 py-3">₱{{ item.total_estimated_price|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr class="bg-gray-50">
+                                <td colspan="3" class="px-4 py-3 text-right font-bold">Total Estimated Cost:</td>
+                                <td class="px-4 py-3 font-bold text-lg">₱{{ pr.total_estimated_cost|floatformat:2 }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Create PO Form - FIXED: Added proper ID -->
+                <button type="button" onclick="togglePOForm('{{ pr.request_id }}')"
+                        class="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center">
+                    <i class="fas fa-plus-circle mr-2"></i> Create Purchase Order
+                </button>
+                
+                <!-- PO Form (hidden by default) - FIXED: Correct ID format -->
+                <div id="poForm{{ pr.request_id }}" class="hidden mt-4 p-4 bg-gray-50 rounded-lg border">
+                    <h4 class="font-semibold text-gray-800 mb-4">Create Purchase Order for PR-{{ pr.request_id }}</h4>
+                    
+                    <form method="POST" action="{% url 'create_purchase_order' pr.request_id %}" class="space-y-4">
+                        {% csrf_token %}
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Select Supplier *</label>
+                                <select name="supplier" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">-- Select Supplier --</option>
+                                    {% for supplier in suppliers %}
+                                    <option value="{{ supplier.supplier_id }}">{{ supplier.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Expected Delivery Date</label>
+                                <input type="date" name="delivery_date"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
+                            <input type="text" name="payment_terms" value="Net 30"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Notes to Supplier</label>
+                            <textarea name="notes" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      placeholder="Any special instructions for the supplier..."></textarea>
+                        </div>
+                        
+                        <!-- Item Prices -->
+                        <div class="border rounded-lg p-4">
+                            <h5 class="font-semibold text-gray-700 mb-3">Enter Unit Prices</h5>
+                            {% for item in pr.purchaserequestitem_set.all %}
+                            <div class="flex items-center justify-between mb-3 p-3 bg-white rounded border">
+                                <div>
+                                    <p class="font-medium">{{ item.product.name }}</p>
+                                    <p class="text-sm text-gray-600">Quantity: {{ item.quantity_to_purchase }} {{ item.product.unit }}</p>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-gray-600">₱</span>
+                                    <input type="number" 
+                                           name="unit_price_{{ item.item_id }}"
+                                           step="0.01"
+                                           min="0"
+                                           required
+                                           class="w-32 px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="Unit Price">
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" 
+                                    onclick="togglePOForm('{{ pr.request_id }}')"
+                                    class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                                Cancel
+                            </button>
+                            <button type="submit" 
+                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+                                <i class="fas fa-save mr-1"></i> Create Purchase Order
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-12 bg-white rounded-xl shadow">
+                <i class="fas fa-clipboard-check text-5xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500 text-lg font-medium">No approved purchase requests</p>
+                <p class="text-gray-400 text-sm mt-2">Approved purchase requests will appear here for PO creation.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+</div>
+
+    <script src="{% static 'js/inventory_dashboard.js' %}"></script>
+<script>
+// SUPER SIMPLE VERSION THAT WILL WORK
+function togglePOForm(requestId) {
+    const form = document.getElementById('poForm' + requestId);
+    if (form) {
+        // Simple toggle - if hidden, show it; if showing, hide it
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    } else {
+        console.log('Could not find form with ID: poForm' + requestId);
+        console.log('Available IDs:');
+        const allIds = [];
+        const allElements = document.getElementsByTagName('*');
+        for (let el of allElements) {
+            if (el.id) allIds.push(el.id);
+        }
+        console.log(allIds.filter(id => id.includes('poForm')));
+    }
+}
+
+// Initialize when page loads
+window.onload = function() {
+    console.log('Page loaded, checking for forms...');
+    const testForm = document.getElementById('poForm1');
+    console.log('Test form poForm1 exists:', !!testForm);
+    
+    // Set date defaults
+    const today = new Date().toISOString().split('T')[0];
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const nextWeekStr = nextWeek.toISOString().split('T')[0];
+    
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        if (!input.value) input.value = nextWeekStr;
+        input.min = today;
+    });
+};
+</script>
+
+</body>
+</html>

@@ -1,0 +1,480 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>LIONG | Request History</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>Employee Panel</h2>
+        <a href="{% url 'employeeDashboard' %}"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+        <a href="{% url 'request' %}"><i class="fa-solid fa-cart-shopping"></i> Request Supplies</a>
+        <a href="{% url 'request_history' %}"><i class="fa-solid fa-clock-rotate-left"></i> Request History</a>
+        <!-- Add logout link -->
+        <a href="{% url 'admin_login' %}" onclick="logout()"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Request History</h1>
+            <div class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border">
+                <i class="fas fa-user mr-1"></i>
+                {{ current_user }}
+            </div>
+        </div>
+
+        <!-- Django Messages -->
+        {% if messages %}
+        <div class="mb-6">
+            {% for message in messages %}
+            <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                        {{ message }}
+                    </div>
+                    <button onclick="this.parentElement.parentElement.style.display='none'" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <!-- Ready for Pickup -->
+            <div class="bg-white rounded-xl shadow-sm border p-4">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 rounded-lg">
+                        <i class="fas fa-hand-paper text-purple-600"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-gray-600">Ready for Pickup</p>
+                        <p class="text-xl font-bold text-gray-800">
+                            {{ ready_count }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Approved -->
+            <div class="bg-white rounded-xl shadow-sm border p-4">
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-100 rounded-lg">
+                        <i class="fas fa-check-circle text-green-600"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-gray-600">Approved</p>
+                        <p class="text-xl font-bold text-gray-800">
+                            {{ approved_count }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pending -->
+            <div class="bg-white rounded-xl shadow-sm border p-4">
+                <div class="flex items-center">
+                    <div class="p-2 bg-yellow-100 rounded-lg">
+                        <i class="fas fa-clock text-yellow-600"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-gray-600">Pending</p>
+                        <p class="text-xl font-bold text-gray-800">
+                            {{ pending_count }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Received/Fulfilled -->
+            <div class="bg-white rounded-xl shadow-sm border p-4">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 rounded-lg">
+                        <i class="fas fa-box-open text-blue-600"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-gray-600">Received</p>
+                        <p class="text-xl font-bold text-gray-800">
+                            {{ received_count }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ready for Pickup Section -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-800">Ready for Pickup</h2>
+                    <p class="text-gray-600 text-sm mt-1">Requests that are ready for you to pick up from inventory</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-500">Total: <span class="font-bold text-purple-600" id="readyPickupCount">
+                        {{ ready_count }}
+                    </span></span>
+                </div>
+            </div>
+            
+            {% if ready_requisitions %}
+                {% for req in ready_requisitions %}
+                <div class="mb-4 p-4 border border-purple-200 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <h3 class="font-semibold text-gray-800">Requisition #{{ req.requisition_id }}</h3>
+                                <span class="ml-3 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                    <i class="fas fa-hand-paper mr-1"></i>Ready for Pickup
+                                </span>
+                            </div>
+                            
+                            <div class="text-sm text-gray-600 mb-2">
+                                <i class="fas fa-calendar-alt mr-1"></i>
+                                {{ req.date_requested|date:"M d, Y" }}
+                                <span class="mx-2">•</span>
+                                <i class="fas fa-clock mr-1"></i>
+                                {{ req.date_requested|time:"H:i A" }}
+                            </div>
+                            
+                            <!-- Items List -->
+                            <div class="mt-3">
+                                <h4 class="text-sm font-medium text-gray-700 mb-2">Items to Pick Up:</h4>
+                                <div class="space-y-2">
+                                    {% for item in req.requisition_item_set.all %}
+                                    <div class="flex justify-between items-center text-sm">
+                                        <div>
+                                            <span class="font-medium">{{ item.product.name }}</span>
+                                            <span class="text-gray-500 ml-2">
+                                                ({{ item.approved_qty|default:item.quantity }} {{ item.product.unit }})
+                                            </span>
+                                        </div>
+                                        <span class="text-xs text-gray-500">
+                                            Reserved for pickup
+                                        </span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            {% if req.remarks %}
+                            <div class="mt-3 p-2 bg-white rounded border border-gray-200">
+                                <span class="text-xs font-medium text-gray-600">Remarks:</span>
+                                <p class="text-sm text-gray-700 mt-1">{{ req.remarks }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="ml-4">
+                            <form method="POST" action="{% url 'mark_as_received' req.requisition_id %}" class="confirm-receipt-form">
+                                {% csrf_token %}
+                                <button type="submit" 
+                                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center"
+                                        onclick="return confirm('Have you received all items for Requisition #{{ req.requisition_id }}?')">
+                                    <i class="fas fa-check-circle mr-2"></i>Mark as Received
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-hand-paper text-4xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500 text-lg">No requests ready for pickup</p>
+                <p class="text-gray-400 text-sm mt-2">Requests marked as "Ready for Pickup" will appear here.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- All Request History -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">All Request History</h2>
+                <div class="flex space-x-2">
+                    <button id="filterAll" class="px-3 py-1 bg-blue-600 text-white rounded text-sm filter-btn active">All</button>
+                    <button id="filterPending" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm filter-btn">Pending</button>
+                    <button id="filterReady" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm filter-btn">Ready</button>
+                    <button id="filterReceived" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm filter-btn">Received</button>
+                </div>
+            </div>
+            
+            {% if requisitions %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Req. ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Requested</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="requestsTable">
+                        {% for req in requisitions %}
+                        <tr class="request-row hover:bg-gray-50 transition-colors" data-status="{{ req.status }}">
+                            <td class="px-4 py-4 text-sm font-medium text-gray-900">#{{ req.requisition_id }}</td>
+                            <td class="px-4 py-4 text-sm text-gray-500">
+                                {{ req.date_requested|date:"M d, Y" }}<br>
+                                <span class="text-xs text-gray-400">{{ req.date_requested|time:"H:i A" }}</span>
+                            </td>
+                            <td class="px-4 py-4 text-sm text-gray-700">
+                                <div class="space-y-1">
+                                    {% for item in req.requisition_item_set.all %}
+                                    <div class="flex justify-between text-xs">
+                                        <span>{{ item.product.name }}</span>
+                                        <span class="text-gray-500">
+                                            {% if item.fulfilled_qty %}
+                                                {{ item.fulfilled_qty }} / 
+                                            {% endif %}
+                                            {{ item.approved_qty|default:item.quantity }} {{ item.product.unit }}
+                                        </span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 text-sm">
+                                <span class="px-3 py-1 rounded-full text-xs font-medium 
+                                    {% if req.status == 'Pending Approval' %}bg-yellow-100 text-yellow-800 border border-yellow-200
+                                    {% elif req.status == 'Approved' %}bg-green-100 text-green-800 border border-green-200
+                                    {% elif req.status == 'Denied' %}bg-red-100 text-red-800 border border-red-200
+                                    {% elif req.status == 'Ready for Pickup' %}bg-purple-100 text-purple-800 border border-purple-200
+                                    {% elif req.status == 'Received' %}bg-blue-100 text-blue-800 border border-blue-200
+                                    {% elif req.status == 'Partially Approved – Pending Purchase' %}bg-orange-100 text-orange-800 border border-orange-200
+                                    {% elif req.status == 'Pending Purchase' %}bg-orange-100 text-orange-800 border border-orange-200
+                                    {% elif req.status == 'Purchased' %}bg-indigo-100 text-indigo-800 border border-indigo-200
+                                    {% else %}bg-gray-100 text-gray-800 border border-gray-200{% endif %}">
+                                    <i class="fas 
+                                        {% if req.status == 'Pending Approval' %}fa-clock
+                                        {% elif req.status == 'Approved' %}fa-check-circle
+                                        {% elif req.status == 'Denied' %}fa-times-circle
+                                        {% elif req.status == 'Ready for Pickup' %}fa-hand-paper
+                                        {% elif req.status == 'Received' %}fa-box-open
+                                        {% elif req.status == 'Partially Approved – Pending Purchase' %}fa-exclamation-circle
+                                        {% elif req.status == 'Pending Purchase' %}fa-shopping-cart
+                                        {% elif req.status == 'Purchased' %}fa-truck
+                                        {% else %}fa-question-circle{% endif %} mr-1"></i>
+                                    {{ req.status }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 text-sm text-gray-600">
+                                {{ req.remarks|default:"-"|truncatewords:10 }}
+                            </td>
+                            <td class="px-4 py-4 text-sm">
+                                <div class="flex space-x-2">
+                                    {% if req.status == 'Ready for Pickup' %}
+                                    <form method="POST" action="{% url 'mark_as_received' req.requisition_id %}" class="confirm-receipt-form">
+                                        {% csrf_token %}
+                                        <button type="submit" 
+                                                class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
+                                                onclick="return confirm('Have you received all items for Requisition #{{ req.requisition_id }}?')">
+                                            <i class="fas fa-check-circle mr-1"></i>Mark Received
+                                        </button>
+                                    </form>
+                                    {% elif req.status == 'Received' %}
+                                    <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                                        <i class="fas fa-check mr-1"></i>Completed
+                                    </span>
+                                    {% else %}
+                                    <span class="px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                                        <i class="fas fa-clock mr-1"></i>Waiting
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <!-- Pagination -->
+                <div class="flex items-center justify-between mt-6 px-4 py-3 border-t border-gray-200">
+                    <div class="text-sm text-gray-700">
+                        Showing <span class="font-medium">{{ requisitions|length }}</span> requests
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-clipboard-list text-4xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500 text-lg">No requests yet</p>
+                <p class="text-gray-400 text-sm mt-2">Submit your first supply request from the Request Supplies page.</p>
+            </div>
+            {% endif %}
+        </div>
+
+    </main>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #9722be, #1e1e2d);
+            color: #fff;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 220px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            padding: 30px 15px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+        }
+
+        .sidebar h2 {
+            margin: 0 0 30px;
+            font-size: 22px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            text-decoration: none;
+            color: #fff;
+            border-radius: 8px;
+            transition: 0.3s;
+            font-weight: 500;
+        }
+
+        .sidebar a:hover, .sidebar a.active {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .sidebar a i { font-size: 16px; }
+
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            color: #000000;
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 15px; }
+            .sidebar a { margin-bottom: 0; margin-right: 10px; white-space: nowrap; }
+            .main-content { padding: 15px; }
+        }
+        
+        .hidden { display: none; }
+        
+        .filter-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterAllBtn = document.getElementById('filterAll');
+            const filterPendingBtn = document.getElementById('filterPending');
+            const filterReadyBtn = document.getElementById('filterReady');
+            const filterReceivedBtn = document.getElementById('filterReceived');
+            const requestRows = document.querySelectorAll('.request-row');
+            
+            // Filter functionality
+            if (filterAllBtn) {
+                filterAllBtn.addEventListener('click', function() {
+                    setActiveFilter('all');
+                    filterRequests('all');
+                });
+            }
+            
+            if (filterPendingBtn) {
+                filterPendingBtn.addEventListener('click', function() {
+                    setActiveFilter('Pending Approval');
+                    filterRequests('Pending Approval');
+                });
+            }
+            
+            if (filterReadyBtn) {
+                filterReadyBtn.addEventListener('click', function() {
+                    setActiveFilter('Ready for Pickup');
+                    filterRequests('Ready for Pickup');
+                });
+            }
+            
+            if (filterReceivedBtn) {
+                filterReceivedBtn.addEventListener('click', function() {
+                    setActiveFilter('Received');
+                    filterRequests('Received');
+                });
+            }
+            
+            function setActiveFilter(filterType) {
+                [filterAllBtn, filterPendingBtn, filterReadyBtn, filterReceivedBtn].forEach(btn => {
+                    if (btn) {
+                        btn.classList.remove('active');
+                        btn.classList.add('bg-gray-200', 'text-gray-700');
+                    }
+                });
+                
+                let activeBtn;
+                if (filterType === 'all') activeBtn = filterAllBtn;
+                else if (filterType === 'Pending Approval') activeBtn = filterPendingBtn;
+                else if (filterType === 'Ready for Pickup') activeBtn = filterReadyBtn;
+                else if (filterType === 'Received') activeBtn = filterReceivedBtn;
+                
+                if (activeBtn) {
+                    activeBtn.classList.add('active', 'bg-blue-600', 'text-white');
+                    activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                }
+            }
+            
+            function filterRequests(status) {
+                requestRows.forEach(row => {
+                    if (status === 'all') {
+                        row.style.display = '';
+                    } else {
+                        const rowStatus = row.getAttribute('data-status');
+                        if (rowStatus === status) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    }
+                });
+            }
+            
+            // Auto-remove messages after 5 seconds
+            setTimeout(function() {
+                const messages = document.querySelectorAll('.p-4.rounded-lg');
+                messages.forEach(function(message) {
+                    message.style.transition = 'opacity 0.5s';
+                    message.style.opacity = '0';
+                    setTimeout(() => message.remove(), 500);
+                });
+            }, 5000);
+            
+            // Logout function
+            window.logout = function() {
+                if (confirm('Are you sure you want to logout?')) {
+                    // Add logout logic here
+                    window.location.href = "{% url 'admin_login' %}";
+                }
+                return false;
+            }
+        });
+    </script>
+</body>
+</html>

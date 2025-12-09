@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,21 +7,12 @@
     <title>LIONG | Inventory - Approved Requisitions</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <script src="https://unpkg.com/feather-icons"></script>
 </head>
 <body class="bg-gray-50">
 
 <!-- Sidebar -->
-<div class="sidebar">
-    <h2>Admin Panel</h2>
-    <a href="{% url 'adminDashboard' %}"><i class="fa-solid fa-house"></i>Home</a>
-    <a href="#"><i class="fa-solid fa-chart-line"></i> Reports</a>
-    <a href="{% url 'addEmployees' %}"><i class="fa-solid fa-users"></i> Manage Employees</a>
-    <a href="{% url 'requestApproval' %}"><i class="fa-solid fa-clipboard-check"></i> Approve Requests</a>
-    <a href="#" class="active"><i class="fa-solid fa-check-circle"></i> Approved Requests</a>
-    <a href="#"><i class="fa-solid fa-warehouse"></i> Inventory</a>
-    <a href="#"><i class="fa-solid fa-bell"></i> Notifications</a>
-    <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
-</div>
+    <inventory-sidebar></inventory-sidebar>
 
 <!-- Main Content -->
 <main class="main-content">
@@ -83,13 +75,6 @@
                 <tr class="{% if req.status == 'Approved' %}bg-green-50{% elif req.status == 'Partially Approved – Pending Purchase' %}bg-yellow-50{% endif %} hover:bg-gray-50 transition-colors">
                     <td class="px-6 py-4">
                         <span class="font-semibold">#{{ req.requisition_id }}</span>
-                        <span class="ml-2 px-2 py-1 text-xs rounded-full 
-                            {% if req.status == 'Approved' %}bg-green-100 text-green-800
-                            {% elif req.status == 'Partially Approved – Pending Purchase' %}bg-yellow-100 text-yellow-800
-                            {% elif req.status == 'Pending Purchase' %}bg-orange-100 text-orange-800
-                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                            {{ req.status }}
-                        </span>
                     </td>
                     <td class="px-6 py-4">
                         <div class="font-medium">{{ req.employee.employee_name }}</div>
@@ -124,24 +109,7 @@
                         <!-- ACTIONS FOR INVENTORY -->
                         <div class="flex flex-col space-y-2">
                             <!-- Check Stock & Fulfill -->
-                            <form method="POST" action="{% url 'inventory_partial_approve' req.requisition_id %}">
-                                {% csrf_token %}
-                                <button type="submit" 
-                                        onclick="return confirm('Check stock and fulfill requisition #{{ req.requisition_id }}? This will deduct available stock.')"
-                                        class="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition duration-200 flex items-center justify-center">
-                                    <i class="fas fa-box mr-1"></i> Check Stock & Fulfill
-                                </button>
-                            </form>
-                            
-                            <!-- Mark for Purchase -->
-                            <form method="POST" action="{% url 'inventory_fulfill_stock' req.requisition_id %}">
-                                {% csrf_token %}
-                                <button type="submit" 
-                                        onclick="return confirm('Mark requisition #{{ req.requisition_id }} for purchase?')"
-                                        class="w-full px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm transition duration-200 flex items-center justify-center">
-                                    <i class="fas fa-shopping-cart mr-1"></i> Mark for Purchase
-                                </button>
-                            </form>
+                          
                             
                             <!-- View Details -->
                             <button onclick="openModal('{{ req.requisition_id }}')"
@@ -187,6 +155,7 @@
     </div>
 
 </main>
+    <script src="{% static 'js/inventory_dashboard.js' %}"></script>
 
 <script>
 function openModal(reqId) {
@@ -279,6 +248,7 @@ setTimeout(function() {
         padding: 30px;
         display: flex;
         flex-direction: column;
+        margin-left: 250px; 
     }
 
     @media (max-width: 768px) {

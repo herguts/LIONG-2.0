@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pending Account Approvals</title>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+  <style>
+    /* BODY & BACKGROUND */
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #9722be, #1e1e2d);
+      color: #fff;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* LEFT NAVBAR */
+    .sidebar {
+      width: 220px;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      padding: 30px 15px;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+    }
+
+    .sidebar h2 {
+      margin: 0 0 30px;
+      font-size: 22px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .sidebar a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 15px;
+      margin-bottom: 15px;
+      text-decoration: none;
+      color: #fff;
+      border-radius: 8px;
+      transition: 0.3s;
+      font-weight: 500;
+      position: relative;
+    }
+
+    .sidebar a:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .sidebar a i {
+      font-size: 18px;
+    }
+
+    .badge {
+      position: absolute;
+      right: 10px;
+      background: #ff4757;
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* MAIN CONTENT */
+    .main-content {
+      flex: 1;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Welcome Header */
+    .welcome-header {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 30px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    }
+
+    .welcome-header h2 {
+      margin: 0 0 10px 0;
+      color: #ffdd59;
+    }
+
+    .welcome-header p {
+      margin: 0;
+      opacity: 0.9;
+    }
+
+    /* Page Header */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .page-header h1 {
+      margin: 0;
+      color: #ffdd59;
+      font-size: 24px;
+    }
+
+    .back-btn {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: 0.3s;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .back-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateX(-5px);
+    }
+
+    /* Accounts Grid */
+    .accounts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      flex: 1;
+    }
+
+    .account-card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+      transition: transform 0.3s;
+      border: 2px solid transparent;
+    }
+
+    .account-card:hover {
+      transform: translateY(-5px);
+      border-color: #00c853;
+      box-shadow: 0 12px 30px rgba(0, 200, 83, 0.2);
+    }
+
+    .account-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .avatar {
+      width: 50px;
+      height: 50px;
+      background: #00c853;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .account-info h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .account-info p {
+      margin: 5px 0 0 0;
+      opacity: 0.8;
+      font-size: 14px;
+    }
+
+    .account-details {
+      margin: 15px 0;
+      font-size: 14px;
+    }
+
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .detail-label {
+      opacity: 0.7;
+    }
+
+    .detail-value {
+      font-weight: 500;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .btn-approve {
+      background: #00c853;
+      color: white;
+    }
+
+    .btn-approve:hover {
+      background: #03b34a;
+      transform: scale(1.05);
+    }
+
+    .btn-reject {
+      background: #ff4757;
+      color: white;
+    }
+
+    .btn-reject:hover {
+      background: #ff3742;
+      transform: scale(1.05);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 15px;
+      margin-top: 20px;
+      backdrop-filter: blur(10px);
+    }
+
+    .empty-state i {
+      font-size: 50px;
+      color: #ffdd59;
+      margin-bottom: 20px;
+    }
+
+    .empty-state h3 {
+      margin: 0 0 10px 0;
+    }
+
+    .empty-state p {
+      opacity: 0.8;
+      margin: 0;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+
+    .status-pending {
+      background: rgba(255, 221, 89, 0.2);
+      color: #ffdd59;
+    }
+
+    .message {
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      backdrop-filter: blur(10px);
+    }
+
+    .message.success {
+      background: rgba(0, 200, 83, 0.1);
+      border: 1px solid #00c853;
+    }
+
+    .message.error {
+      background: rgba(255, 71, 87, 0.1);
+      border: 1px solid #ff4757;
+    }
+    /* Logout button */
+        .logout-btn {
+            margin-top: auto;
+            margin-bottom: 10px;
+            background: rgba(255, 71, 87, 0.2);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 71, 87, 0.3);
+        }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .sidebar { 
+        width: 100%; 
+        flex-direction: row; 
+        overflow-x: auto; 
+        padding: 15px; 
+        box-shadow: none;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+      .sidebar a { 
+        margin-bottom: 0; 
+        margin-right: 10px; 
+        white-space: nowrap; 
+        padding: 10px;
+      }
+      .main-content { 
+        padding: 15px; 
+      }
+      .accounts-grid {
+        grid-template-columns: 1fr;
+      }
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+      }
+      .back-btn {
+        align-self: flex-start;
+      }
+    }
+
+    /* Highlight current page */
+    .sidebar a[href*="pending_accounts"] {
+      background: rgba(0, 200, 83, 0.3);
+      border-left: 4px solid #00c853;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LEFT NAVBAR -->
+  <div class="sidebar">
+    <h2>Admin Panel</h2>
+    <a href="{% url 'adminDashboard' %}"><i class="fa-solid fa-house"></i>Home</a>
+    
+    {% if request.session.admin_role == 'super_admin' %}
+    <a href="{% url 'pending_accounts' %}">
+      <i class="fa-solid fa-user-clock"></i> Pending Accounts
+      {% if pending_count > 0 %}
+      <span class="badge">{{ pending_count }}</span>
+      {% endif %}
+    </a>
+    <a href="{% url 'manage_accounts' %}">
+      <i class="fa-solid fa-users-cog"></i> Manage Accounts
+    </a>
+    {% endif %}
+    
+    <a href="#"><i class="fa-solid fa-chart-line"></i> Report & Statistics</a>
+    <a href="{% url 'requestApproval' %}"><i class="fa-solid fa-envelope"></i> Request Approval</a>
+    <a href="{% url 'purchase_requests_list' %}"><i class="fa-solid fa-file-invoice-dollar"></i> Purchase Approval</a>
+    <a href="#"><i class="fa-solid fa-bell"></i> Notification</a>
+    <a href="{% url 'edit_my_account' %}"><i class="fa-solid fa-gear"></i> My Account</a>
+    <!-- Logout Button -->
+        <a href="{% url 'admin_login' %}" class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </a>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <!-- Welcome Header -->
+    <div class="welcome-header">
+      <h2>Welcome, {{ request.session.admin_name }}!</h2>
+      <p>
+        <i class="fa-solid fa-user-circle"></i> 
+        Logged in as {{ request.session.admin_role|title }}
+      </p>
+      <div class="time-display" id="currentTime">
+        <i class="fa-solid fa-clock"></i>
+        Loading time...
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <h1><i class="fa-solid fa-user-clock"></i> Pending Account Approvals</h1>
+      <a href="{% url 'adminDashboard' %}" class="back-btn">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+      </a>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+      {% for message in messages %}
+        <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+          {% if message.tags == 'success' %}
+            <i class="fa-solid fa-circle-check"></i>
+          {% else %}
+            <i class="fa-solid fa-circle-exclamation"></i>
+          {% endif %}
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <!-- Accounts List -->
+    {% if pending_accounts %}
+      <div class="accounts-grid">
+        {% for account in pending_accounts %}
+        <div class="account-card">
+          <div class="account-header">
+            <div class="avatar">
+              {{ account.name|slice:"0:1"|upper }}
+            </div>
+            <div class="account-info">
+              <h3>{{ account.name }}
+                <span class="status-badge status-pending">Pending</span>
+              </h3>
+              <p>{{ account.email }}</p>
+            </div>
+          </div>
+
+          <div class="account-details">
+            <div class="detail-item">
+              <span class="detail-label">Role:</span>
+              <span class="detail-value">{{ account.get_role_display }}</span>
+            </div>
+            {% if account.department %}
+            <div class="detail-item">
+              <span class="detail-label">Department:</span>
+              <span class="detail-value">{{ account.department }}</span>
+            </div>
+            {% endif %}
+            <div class="detail-item">
+              <span class="detail-label">Registered:</span>
+              <span class="detail-value">{{ account.created_at|date:"M d, Y" }}</span>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <form method="POST" action="{% url 'approve_account' account.acc_id %}" style="flex: 1;">
+              {% csrf_token %}
+              <button type="submit" name="action" value="approve" class="btn btn-approve">
+                <i class="fa-solid fa-check"></i> Approve
+              </button>
+            </form>
+            <form method="POST" action="{% url 'approve_account' account.acc_id %}" style="flex: 1;">
+              {% csrf_token %}
+              <button type="submit" name="action" value="reject" class="btn btn-reject" 
+                      onclick="return confirm('Reject {{ account.name }}?')">
+                <i class="fa-solid fa-times"></i> Reject
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <i class="fa-solid fa-user-check"></i>
+        <h3>No Pending Approvals</h3>
+        <p>All accounts have been approved. You're all caught up!</p>
+        <a href="{% url 'adminDashboard' %}" class="back-btn" style="margin-top: 20px;">
+          <i class="fa-solid fa-arrow-left"></i> Return to Dashboard
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  <script>
+
+    function updateCurrentTime() {
+      const now = new Date();
+      
+      // Format options
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      };
+      
+      // Format the date
+      const formattedTime = now.toLocaleDateString('en-US', options);
+      
+      // Update the time display
+      document.getElementById('currentTime').innerHTML = `
+        <i class="fa-solid fa-clock"></i>
+        ${formattedTime}
+      `;
+    }
+    
+    // Update time immediately and every second
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+
+    // Auto-refresh page every 30 seconds if there are pending accounts
+    const hasPendingAccounts = ('{{ pending_accounts|length }}') > 0;
+    if (hasPendingAccounts) {
+      setTimeout(() => {
+        location.reload();
+      }, 30000);
+    }
+
+    // Auto-refresh dashboard every 60 seconds
+    setInterval(() => {
+      location.reload();
+    }, 60000);
+
+    // Confirm before rejecting
+    document.querySelectorAll('.btn-reject').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        if (!confirm('Are you sure you want to reject this account?')) {
+          e.preventDefault();
+        }
+      });
+    });
+
+    // Highlight current page in sidebar
+    const currentPath = window.location.pathname;
+    document.querySelectorAll('.sidebar a').forEach(link => {
+      if (link.getAttribute('href') === currentPath) {
+        link.style.background = 'rgba(0, 200, 83, 0.3)';
+        link.style.borderLeft = '4px solid #00c853';
+      }
+    });
+
+    // Show logout confirmation
+    document.querySelectorAll('.logout-btn').forEach(link => {
+        link.addEventListener('click', function(e) {
+            if (!confirm('Are you sure you want to logout?')) {
+                e.preventDefault();
+            }
+        });
+    });
+  </script>
+</body>
+</html>

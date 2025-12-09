@@ -12,12 +12,12 @@
     <div class="sidebar">
         <h2>Employee Panel</h2>
         <a href="{% url 'employeeDashboard' %}"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-        <a href="#" class="active"><i class="fa-solid fa-cart-shopping"></i> Request Supplies</a>
-        <a href="#"><i class="fa-solid fa-clock-rotate-left"></i> Request History</a>
-        <a href="#"><i class="fa-solid fa-bell"></i> Notifications</a>
-        <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
+        <a href="{% url 'request' %}"><i class="fa-solid fa-cart-shopping"></i> Request Supplies</a>
+        <a href="{% url 'request_history' %}"><i class="fa-solid fa-clock-rotate-left"></i> Request History</a>
+        <!-- Add logout link -->
+        <a href="{% url 'admin_login' %}" onclick="logout()"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
     </div>
-
+                
     <!-- Main Content -->
     <main class="main-content">
         <div class="flex justify-between items-center mb-6">
@@ -57,7 +57,7 @@
                 <!-- Products Selection -->
                 <div class="mb-6">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-lg font-medium text-gray-700">Select Products</h3>
+                        <h3 class="text-lg font-medium text-gray-700">Select Products from Inventory</h3>
                     </div>
                     
                     <!-- Search Bar -->
@@ -80,7 +80,6 @@
                                 <div>
                                     <span class="font-medium text-gray-800 product-name">{{ product.name }}</span>
                                     <span class="text-sm text-gray-500 ml-2">({{ product.unit }})</span>
-                                    <span class="text-sm text-gray-500 ml-2">(Available: {{ product.available_qty }})</span>
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2">
@@ -93,9 +92,79 @@
                         {% empty %}
                         <div class="text-center py-4 text-gray-500">
                             <i class="fas fa-box-open text-3xl mb-2"></i>
-                            <p>No products available</p>
+                            <p>No products available in inventory</p>
                         </div>
                         {% endfor %}
+                    </div>
+                    
+                    <!-- Add New Product Option -->
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <div class="mb-4">
+                            <button type="button" id="addNewItemBtn" 
+                                    class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-200 flex items-center">
+                                <i class="fas fa-plus-circle mr-2"></i>Request Item Not in Inventory
+                            </button>
+                        </div>
+                        
+                        <!-- New Product Form (Initially Hidden) -->
+                        <div id="newProductSection" class="hidden mb-4 p-4 border border-green-200 rounded-lg bg-green-50">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3">Request New Item</h3>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        Item Name <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="new_product_name" 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                                           placeholder="Enter item name">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        Unit <span class="text-red-500">*</span>
+                                    </label>
+                                    <select name="new_product_unit" 
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                                        <option value="piece">Piece</option>
+                                        <option value="box">Box</option>
+                                        <option value="pack">Pack</option>
+                                        <option value="set">Set</option>
+                                        <option value="liter">Liter</option>
+                                        <option value="kg">Kilogram</option>
+                                        <option value="meter">Meter</option>
+                                        <option value="roll">Roll</option>
+                                        <option value="bottle">Bottle</option>
+                                        <option value="can">Can</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Quantity Needed <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="new_product_quantity" min="1" value="1" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                            </div>
+                            
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" id="cancelNewProduct" 
+                                        class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition duration-200">
+                                    Cancel
+                                </button>
+                                <button type="button" id="addNewItemToList" 
+                                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200">
+                                    Add to Request
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- New Items Preview -->
+                        <div id="newItemsPreview" class="mt-4 space-y-3 hidden">
+                            <h4 class="text-md font-semibold text-gray-700">New Items to be Requested:</h4>
+                            <!-- New items will appear here -->
+                        </div>
                     </div>
                 </div>
 
@@ -253,18 +322,18 @@
     </style>
 
     <script>
-        // Enable quantity inputs when products are selected
         document.addEventListener('DOMContentLoaded', function() {
             const checkboxes = document.querySelectorAll('.product-checkbox');
             const quantityInputs = document.querySelectorAll('.quantity-input');
             const productSearch = document.getElementById('productSearch');
-            const productsContainer = document.getElementById('productsContainer');
-            const addNewProductBtn = document.getElementById('addNewProductBtn');
+            const addNewItemBtn = document.getElementById('addNewItemBtn');
             const newProductSection = document.getElementById('newProductSection');
+            const newItemsPreview = document.getElementById('newItemsPreview');
             const cancelNewProduct = document.getElementById('cancelNewProduct');
-            const addProductToList = document.getElementById('addProductToList');
+            const addNewItemToList = document.getElementById('addNewItemToList');
+            const requisitionForm = document.getElementById('requisitionForm');
             
-            let newProductCounter = 0;
+            let newItemsCounter = 0;
             
             // Toggle quantity inputs when products are selected
             checkboxes.forEach((checkbox, index) => {
@@ -292,34 +361,110 @@
             });
 
             // Show new product form
-            addNewProductBtn.addEventListener('click', function() {
+            addNewItemBtn.addEventListener('click', function() {
                 newProductSection.classList.remove('hidden');
-                this.style.display = 'none';
+                this.classList.add('hidden');
             });
 
             // Hide new product form
             cancelNewProduct.addEventListener('click', function() {
                 newProductSection.classList.add('hidden');
-                addNewProductBtn.style.display = 'block';
+                addNewItemBtn.classList.remove('hidden');
                 // Clear form
                 document.querySelector('input[name="new_product_name"]').value = '';
                 document.querySelector('select[name="new_product_unit"]').value = 'piece';
                 document.querySelector('input[name="new_product_quantity"]').value = '1';
             });
 
+            // Add new item to preview list
+            addNewItemToList.addEventListener('click', function() {
+                const productName = document.querySelector('input[name="new_product_name"]').value.trim();
+                const productUnit = document.querySelector('select[name="new_product_unit"]').value;
+                const productQuantity = document.querySelector('input[name="new_product_quantity"]').value;
+                
+                // Validation
+                if (!productName) {
+                    alert('Please enter a product name.');
+                    return;
+                }
+                
+                if (!productQuantity || productQuantity <= 0) {
+                    alert('Please enter a valid quantity.');
+                    return;
+                }
+                
+                // Create a new item entry
+                newItemsCounter++;
+                const newItemId = `new_item_${newItemsCounter}`;
+                
+                const newItemHTML = `
+                    <div class="new-item-preview flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg" id="${newItemId}">
+                        <div class="flex items-center space-x-4">
+                            <input type="checkbox" name="new_item_selected[]" value="${newItemId}" checked class="hidden">
+                            <div>
+                                <div class="flex items-center">
+                                    <span class="font-medium text-gray-800">${productName}</span>
+                                    <span class="ml-2 px-2 py-1 text-xs bg-green-200 text-green-800 rounded">New Item</span>
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <span>Unit: ${productUnit}</span>
+                                    <span class="ml-3">Quantity: ${productQuantity}</span>
+                                </div>
+                                <input type="hidden" name="new_items[${newItemId}][name]" value="${productName}">
+                                <input type="hidden" name="new_items[${newItemId}][unit]" value="${productUnit}">
+                                <input type="hidden" name="new_items[${newItemId}][quantity]" value="${productQuantity}">
+                            </div>
+                        </div>
+                        <button type="button" class="remove-new-item text-red-500 hover:text-red-700" onclick="removeNewItem('${newItemId}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                
+                // Add to preview
+                newItemsPreview.insertAdjacentHTML('beforeend', newItemHTML);
+                newItemsPreview.classList.remove('hidden');
+                
+                // Hide form and show button again
+                newProductSection.classList.add('hidden');
+                addNewItemBtn.classList.remove('hidden');
+                
+                // Clear form
+                document.querySelector('input[name="new_product_name"]').value = '';
+                document.querySelector('select[name="new_product_unit"]').value = 'piece';
+                document.querySelector('input[name="new_product_quantity"]').value = '1';
+            });
+
+            // Remove new item function
+            window.removeNewItem = function(itemId) {
+                const itemElement = document.getElementById(itemId);
+                if (itemElement) {
+                    itemElement.remove();
+                    // Hide preview if no items left
+                    if (newItemsPreview.querySelectorAll('.new-item-preview').length === 0) {
+                        newItemsPreview.classList.add('hidden');
+                    }
+                }
+            };
 
             // Form validation
-            document.getElementById('requisitionForm').addEventListener('submit', function(e) {
-                const checkedProducts = document.querySelectorAll('.product-checkbox:checked');
-                if (checkedProducts.length === 0) {
+            requisitionForm.addEventListener('submit', function(e) {
+                const existingChecked = document.querySelectorAll('.product-checkbox:checked');
+                const newItems = newItemsPreview.querySelectorAll('.new-item-preview');
+                
+                // Check if at least one item is selected (either existing or new)
+                if (existingChecked.length === 0 && newItems.length === 0) {
                     e.preventDefault();
-                    alert('Please select at least one product.');
+                    alert('Please select at least one product from inventory or add a new item request.');
                     return false;
                 }
                 
+                // Validate quantities for existing products
                 let hasValidQuantity = true;
-                checkedProducts.forEach((checkbox) => {
-                    const quantityInput = checkbox.closest('.flex').querySelector('.quantity-input');
+                existingChecked.forEach((checkbox) => {
+                    const productItem = checkbox.closest('.product-item');
+                    const quantityInput = productItem.querySelector('.quantity-input');
+                    
                     if (!quantityInput || !quantityInput.value || quantityInput.value <= 0) {
                         hasValidQuantity = false;
                         quantityInput.style.borderColor = 'red';
@@ -333,8 +478,22 @@
                     alert('Please enter valid quantities for all selected products.');
                     return false;
                 }
+                
+                // Add a flag if there are new items
+                if (newItems.length > 0) {
+                    const hasNewItems = document.createElement('input');
+                    hasNewItems.type = 'hidden';
+                    hasNewItems.name = 'has_new_items';
+                    hasNewItems.value = 'true';
+                    this.appendChild(hasNewItems);
+                }
             });
         });
+        window.logout = function() {
+                if (confirm('Are you sure you want to logout?')) {
+                    window.location.href = "{% url 'admin_login' %}?logout=true";
+                }
+            }
     </script>
 </body>
 </html>

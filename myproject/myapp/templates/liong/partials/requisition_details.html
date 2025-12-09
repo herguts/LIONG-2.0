@@ -1,0 +1,168 @@
+<div class="space-y-4">
+    <!-- Requisition Header -->
+    <div class="flex justify-between items-start">
+        <div>
+            <h3 class="text-xl font-bold text-gray-800">Requisition #{{ requisition.requisition_id }}</h3>
+            <p class="text-sm text-gray-600">
+                Requested by: {{ requisition.employee.employee_name }} 
+                ({{ requisition.employee.department|default:"No Department" }})
+            </p>
+            <p class="text-sm text-gray-600">
+                Date: {{ requisition.date_requested|date:"M d, Y H:i" }}
+            </p>
+        </div>
+        <span class="px-3 py-1 rounded-full text-sm font-medium 
+            {% if requisition.status == 'Ready for Pickup' %}bg-purple-100 text-purple-800
+            {% elif requisition.status == 'Pending' %}bg-yellow-100 text-yellow-800
+            {% elif requisition.status == 'For Approval' %}bg-blue-100 text-blue-800
+            {% elif requisition.status == 'Approved' %}bg-green-100 text-green-800
+            {% elif requisition.status == 'Fulfilled' %}bg-gray-100 text-gray-800
+            {% elif requisition.status == 'Cancelled' or requisition.status == 'Cancelled by Employee' or requisition.status == 'Cancelled by Inventory' %}bg-red-100 text-red-800
+            {% else %}bg-gray-100 text-gray-800{% endif %}">
+            {{ requisition.status }}
+        </span>
+    </div>
+    
+    <!-- Items Table -->
+    <div>
+        <h4 class="font-medium text-gray-700 mb-3">Items Requested</h4>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Requested</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Approved</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fulfilled</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for item in items %}
+                    <tr>
+                        <td class="px-4 py-3">
+                            <div class="font-medium">{{ item.product.name }}</div>
+                            <div class="text-xs text-gray-500">ID: {{ item.product.product_id }}</div>
+                        </td>
+                        <td class="px-4 py-3">{{ item.product.unit }}</td>
+                        <td class="px-4 py-3">{{ item.quantity }}</td>
+                        <td class="px-4 py-3">{{ item.approved_qty|default:"-" }}</td>
+                        <td class="px-4 py-3">{{ item.fulfilled_qty|default:"-" }}</td>
+                        <td class="px-4 py-3">
+                            {% if item.fulfilled_qty and item.fulfilled_qty >= item.approved_qty %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Fulfilled</span>
+                            {% elif item.approved_qty %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Approved</span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Stock Out Information -->
+    {% if stock_outs %}
+    <div>
+        <h4 class="font-medium text-gray-700 mb-3">Stock Out Records</h4>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Purpose</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for stock_out in stock_outs %}
+                    <tr>
+                        <td class="px-4 py-3">{{ stock_out.product.name }}</td>
+                        <td class="px-4 py-3">{{ stock_out.quantity }} {{ stock_out.unit }}</td>
+                        <td class="px-4 py-3">{{ stock_out.date_out|date:"M d, Y" }}</td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 text-xs rounded-full 
+                                {% if stock_out.status == 'reserved' %}bg-yellow-100 text-yellow-800
+                                {% elif stock_out.status == 'issued' %}bg-green-100 text-green-800
+                                {% elif stock_out.status == 'cancelled' %}bg-red-100 text-red-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ stock_out.status|title }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm">{{ stock_out.purpose|truncatechars:30 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Timeline -->
+    <div>
+        <h4 class="font-medium text-gray-700 mb-3">Status Timeline</h4>
+        <div class="space-y-3">
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                    <i class="fas fa-paper-plane text-white text-xs"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="font-medium">Request Submitted</p>
+                    <p class="text-sm text-gray-600">{{ requisition.date_requested|date:"M d, Y H:i" }}</p>
+                </div>
+            </div>
+            
+            {% if requisition.approved_date %}
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                    <i class="fas fa-check text-white text-xs"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="font-medium">Approved</p>
+                    <p class="text-sm text-gray-600">{{ requisition.approved_date|date:"M d, Y H:i" }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if requisition.pickup_ready_date %}
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                    <i class="fas fa-box text-white text-xs"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="font-medium">Ready for Pickup</p>
+                    <p class="text-sm text-gray-600">{{ requisition.pickup_ready_date|date:"M d, Y H:i" }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if requisition.fulfilled_date %}
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center">
+                    <i class="fas fa-check-circle text-white text-xs"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="font-medium">Fulfilled</p>
+                    <p class="text-sm text-gray-600">{{ requisition.fulfilled_date|date:"M d, Y H:i" }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Notes -->
+    {% if requisition.notes %}
+    <div>
+        <h4 class="font-medium text-gray-700 mb-2">Notes</h4>
+        <div class="bg-gray-50 p-4 rounded-lg">
+            <p class="text-sm text-gray-700">{{ requisition.notes }}</p>
+        </div>
+    </div>
+    {% endif %}
+</div>

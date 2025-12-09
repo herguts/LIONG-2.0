@@ -3,12 +3,60 @@ class InventorySidebar extends HTMLElement {
     const currentFile = (window.location.pathname.split('/').pop() || 'index.html').toLowerCase();
 
     const menu = [
-      { href: '/inventory-dashboard/', label: 'Inventory Dashboard', icon: 'layers' },
-      { href: '/inventory-dashboard/stock-in/', label: 'Stock In', icon: 'arrow-down-circle' },
-      { href: '/inventory-dashboard/stock-out/', label: 'Stock Out', icon: 'arrow-up-circle' },
-      { href: '/inventory-dashboard/balance/', label: 'Balance', icon: 'bar-chart-2' },
-      { href: '/inventory-dashboard/approved_requisitions/', label: 'Manage Request', icon: 'fa-solid fa-gear' },
-      { href: '/inventory-dashboard/conversion/', label: 'Conversion Table', icon: 'shuffle' }
+      { 
+        href: '/inventory-dashboard/', 
+        label: 'Inventory Dashboard', 
+        icon: 'layers',
+        patterns: ['inventory-dashboard']
+      },
+      { 
+        href: '/inventory-dashboard/stock-in/', 
+        label: 'Stock In', 
+        icon: 'arrow-down-circle',
+        patterns: ['stock-in']
+      },
+      { 
+        href: '/inventory-dashboard/stock-out/', 
+        label: 'Stock Out', 
+        icon: 'arrow-up-circle',
+        patterns: ['stock-out']
+      },
+      { 
+        href: '/inventory-dashboard/balance/', 
+        label: 'Balance', 
+        icon: 'bar-chart-2',
+        patterns: ['balance']
+      },
+      { 
+        href: '/inventory-dashboard/approved_requisitions/', 
+        label: 'Manage Request', 
+        icon: 'package',
+        patterns: ['approved_requisitions', 'inventory-requisition']
+      },
+      { 
+        href: '/approved-purchase-requests/', 
+        label: 'Create Purchase Orders', 
+        icon: 'file-text',
+        patterns: ['approved-purchase-requests', 'create-purchase-order']
+      },
+      { 
+        href: '/purchase-orders/', 
+        label: 'Manage Purchase', 
+        icon: 'shopping-cart',
+        patterns: ['purchase-orders', 'send-purchase-order', 'receive-purchase-order']
+      },
+      { 
+        href: '/ready-for-pickup/', 
+        label: 'Ready for Pickup', 
+        icon: 'truck',
+        patterns: ['ready-for-pickup', 'mark-ready-pickup', 'complete-pickup']
+      },
+      { 
+        href: '/suppliers/', 
+        label: 'Suppliers', 
+        icon: 'users',
+        patterns: ['suppliers', 'add-supplier']
+      },
     ];
 
     const makeIconSvg = (name) => {
@@ -75,5 +123,40 @@ class InventorySidebar extends HTMLElement {
     setTimeout(() => feather.replace(), 200);
   }
 }
+
+// Add to your existing JavaScript file
+
+// Supplier Management Functions
+function editSupplier(supplierId) {
+    fetch(`/edit-supplier/${supplierId}/`)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById("editSupplierContent").innerHTML = html;
+            document.getElementById("editSupplierModal").classList.remove("hidden");
+        })
+        .catch(error => {
+            console.error('Error loading supplier:', error);
+            document.getElementById("editSupplierContent").innerHTML = 
+                '<div class="text-red-500 p-4">Error loading supplier details.</div>';
+        });
+}
+
+function closeEditSupplierModal() {
+    document.getElementById("editSupplierModal").classList.add("hidden");
+    document.getElementById("editSupplierContent").innerHTML = '';
+}
+
+// Add event listener for edit supplier modal
+document.addEventListener('DOMContentLoaded', function() {
+    const editModal = document.getElementById('editSupplierModal');
+    if (editModal) {
+        editModal.addEventListener('click', function(e) {
+            if (e.target.id === 'editSupplierModal') {
+                closeEditSupplierModal();
+            }
+        });
+    }
+});
+
 
 customElements.define('inventory-sidebar', InventorySidebar);

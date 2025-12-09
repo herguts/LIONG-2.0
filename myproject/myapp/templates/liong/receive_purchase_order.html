@@ -1,0 +1,231 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIONG | Receive Purchase Order</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+
+<inventory-sidebar></inventory-sidebar>
+
+<main class="main-content">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Receive Purchase Order</h1>
+        <a href="{% url 'purchase_orders_list' %}" 
+           class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border hover:bg-gray-50">
+            <i class="fas fa-arrow-left mr-1"></i> Back to Purchase Orders
+        </a>
+    </div>
+
+    <!-- PO Information -->
+    <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800">{{ purchase_order.po_number }}</h2>
+                <div class="flex items-center space-x-4 mt-2">
+                    <span class="px-3 py-1 rounded-full text-sm font-medium 
+                        {% if purchase_order.status == 'sent' %}bg-yellow-100 text-yellow-800
+                        {% elif purchase_order.status == 'ordered' %}bg-blue-100 text-blue-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ purchase_order.get_status_display }}
+                    </span>
+                    <span class="text-sm text-gray-600">Supplier: {{ purchase_order.supplier.name }}</span>
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="text-lg font-bold text-gray-800">₱{{ purchase_order.total_amount|floatformat:2 }}</p>
+                <p class="text-sm text-gray-600">Total Amount</p>
+            </div>
+        </div>
+
+        <!-- Supplier Info -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+            <div>
+                <p class="text-sm font-medium text-gray-600">Supplier Contact</p>
+                <p class="text-gray-800">{{ purchase_order.supplier.contact_person|default:"-" }}</p>
+                <p class="text-sm text-gray-600">{{ purchase_order.supplier.phone }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-600">Delivery Date</p>
+                <p class="text-gray-800">{{ purchase_order.delivery_date|date:"M d, Y"|default:"Not set" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-600">Payment Terms</p>
+                <p class="text-gray-800">{{ purchase_order.payment_terms }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receiving Form -->
+    <form method="POST" class="bg-white rounded-xl shadow-md p-6">
+        {% csrf_token %}
+        
+        <!-- Receiving Details -->
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Receiving Details</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Invoice Number</label>
+                    <input type="text" name="invoice_number"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Supplier invoice number">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Delivery Note Number</label>
+                    <input type="text" name="delivery_note_number"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Delivery note/waybill number">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Carrier</label>
+                    <input type="text" name="carrier"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Shipping company">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Receive Date</label>
+                    <input type="date" name="receive_date" 
+                           value="{% now 'Y-m-d' %}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           required>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Receiving -->
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Items Receiving & Quality Check</h3>
+            <div class="space-y-4">
+                {% for item in purchase_order.purchaseorderitem_set.all %}
+                <div class="border rounded-lg p-4">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h4 class="font-bold text-gray-800">{{ item.product.name }}</h4>
+                            <p class="text-sm text-gray-600">Ordered: {{ item.quantity }} {{ item.product.unit }} • ₱{{ item.unit_price|floatformat:2 }} each</p>
+                            {% if item.received_quantity > 0 %}
+                            <p class="text-sm text-green-600 mt-1">
+                                Previously received: {{ item.received_quantity }} {{ item.product.unit }}
+                            </p>
+                            {% endif %}
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold">₱{{ item.total_price|floatformat:2 }}</p>
+                            <p class="text-sm text-gray-600">Total</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Quantity Received</label>
+                            <input type="number" 
+                                   name="received_qty_{{ item.po_item_id }}"
+                                   step="0.01"
+                                   min="0"
+                                   max="{{ item.remaining_quantity }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="0.00">
+                            <p class="text-xs text-gray-500 mt-1">Remaining: {{ item.remaining_quantity }}</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Quantity Accepted</label>
+                            <input type="number" 
+                                   name="accepted_qty_{{ item.po_item_id }}"
+                                   step="0.01"
+                                   min="0"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="0.00"
+                                   onchange="updateRejected(this, '{{ item.po_item_id }}')">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Rejection Reason</label>
+                            <input type="text" 
+                                   name="rejection_reason_{{ item.po_item_id }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="If rejected, specify reason"
+                                   disabled>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Quality Check Notes -->
+        <div class="mb-8">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Quality Check Notes</label>
+            <textarea name="quality_check_notes" rows="4"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Any observations during quality check..."></textarea>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex justify-end space-x-3">
+            <a href="{% url 'purchase_orders_list' %}"
+               class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                Cancel
+            </a>
+            <button type="submit" 
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+                <i class="fas fa-box-open mr-1"></i> Receive Goods
+            </button>
+        </div>
+    </form>
+</main>
+
+<script>
+function updateRejected(acceptedInput, itemId) {
+    const receivedInput = acceptedInput.parentElement.parentElement.querySelector(
+        `input[name="received_qty_${itemId}"]`
+    );
+    const rejectionInput = acceptedInput.parentElement.parentElement.querySelector(
+        `input[name="rejection_reason_${itemId}"]`
+    );
+    
+    const receivedQty = parseFloat(receivedInput.value) || 0;
+    const acceptedQty = parseFloat(acceptedInput.value) || 0;
+    
+    if (acceptedQty < receivedQty) {
+        rejectionInput.disabled = false;
+        rejectionInput.required = true;
+    } else {
+        rejectionInput.disabled = true;
+        rejectionInput.required = false;
+        rejectionInput.value = '';
+    }
+}
+
+// Auto-calculate accepted = received when received changes
+document.addEventListener('DOMContentLoaded', function() {
+    const receivedInputs = document.querySelectorAll('input[name^="received_qty_"]');
+    receivedInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            const itemId = this.name.split('_')[2];
+            const acceptedInput = document.querySelector(`input[name="accepted_qty_${itemId}"]`);
+            acceptedInput.value = this.value;
+            updateRejected(acceptedInput, itemId);
+        });
+    });
+});
+</script>
+
+<style>
+.main-content {
+    margin-left: 250px;
+    padding: 30px;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+        padding: 15px;
+    }
+}
+</style>
+</body>
+</html>

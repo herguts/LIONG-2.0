@@ -2,229 +2,525 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Inventory Dashboard</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>LIONG | Inventory Balance</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <script src="https://unpkg.com/feather-icons"></script>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50" data-role="{{ current_admin.role }}">
 
-    <!-- Sidebar -->
-    <inventory-sidebar></inventory-sidebar>
+<inventory-sidebar></inventory-sidebar>
 
-    <!-- Main content -->
-    <main class="ml-[250px] p-6">
-        <!-- Header -->
+<main class="main-content">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Inventory Balance</h1>
+        <div class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border">
+            <i class="fas fa-boxes mr-1"></i>
+            {{ current_admin.role|title }} • Inventory
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="mb-6">
+        {% for message in messages %}
+        <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800 border border-yellow-200{% elif message.tags == 'info' %}bg-blue-100 text-blue-800 border border-blue-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                    {{ message }}
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Header Info -->
+    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-chart-bar text-blue-600 text-xl mr-3"></i>
+            <div>
+                <h3 class="font-semibold text-blue-800">Current Stock Levels</h3>
+                <p class="text-blue-600 text-sm">Monitor inventory and create purchase requests for any item</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards - FIXED: Proper calculation -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <!-- Total Products -->
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-blue-100 rounded-lg">
+                    <i data-feather="package" class="w-5 h-5 text-blue-600"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-gray-600">Total Products</p>
+                    <p class="text-xl font-bold text-gray-800">{{ balances|length }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Low Stock Items -->
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-orange-100 rounded-lg">
+                    <i data-feather="alert-triangle" class="w-5 h-5 text-orange-600"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-gray-600">Low Stock</p>
+                    <p class="text-xl font-bold text-gray-800">
+                        {% with low_stock=0 %}
+                            {% for balance in balances %}
+                                {% if balance.min_stock > 0 and balance.quantity_unit < balance.min_stock and balance.quantity_unit > 0 %}
+                                    {% widthratio low_stock|add:1 1 1 as low_stock %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ low_stock }}
+                        {% endwith %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- In Stock Items -->
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-green-100 rounded-lg">
+                    <i data-feather="check-circle" class="w-5 h-5 text-green-600"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-gray-600">In Stock</p>
+                    <p class="text-xl font-bold text-gray-800">
+                        {% with in_stock=0 %}
+                            {% for balance in balances %}
+                                {% if balance.min_stock > 0 and balance.quantity_unit >= balance.min_stock %}
+                                    {% widthratio in_stock|add:1 1 1 as in_stock %}
+                                {% elif balance.quantity_unit > 0 %}
+                                    {% widthratio in_stock|add:1 1 1 as in_stock %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ in_stock }}
+                        {% endwith %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Out of Stock -->
+        <div class="bg-white rounded-xl shadow-sm border p-4">
+            <div class="flex items-center">
+                <div class="p-2 bg-red-100 rounded-lg">
+                    <i data-feather="x-circle" class="w-5 h-5 text-red-600"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-gray-600">Out of Stock</p>
+                    <p class="text-xl font-bold text-gray-800">
+                        {% with out_of_stock=0 %}
+                            {% for balance in balances %}
+                                {% if balance.quantity_unit <= 0 %}
+                                    {% widthratio out_of_stock|add:1 1 1 as out_of_stock %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ out_of_stock }}
+                        {% endwith %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="bg-white rounded-xl shadow-md p-6">
         <div class="flex justify-between items-center mb-6">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">Inventory Balance</h1>
-                <p class="text-gray-600 mt-1">Current stock levels and procurement insights</p>
+                <h2 class="text-lg font-semibold text-gray-800">Product Inventory</h2>
+                <p class="text-sm text-gray-600 mt-1">Click "Request Purchase" on any item to create a purchase request</p>
             </div>
-            <div class="flex items-center space-x-4">
-                <div class="bg-white rounded-lg shadow-sm border px-4 py-2">
-                    <span class="text-sm text-gray-500">Total Products:</span>
-                    <span class="font-semibold ml-2">{{ balances|length }}</span>
+            <div class="flex space-x-3">
+                <div class="relative">
+                    <input type="text" 
+                           id="searchInput" 
+                           placeholder="Search products..." 
+                           class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <i data-feather="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
                 </div>
+                <select id="stockFilter" 
+                        class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="all">All Items</option>
+                    <option value="low_stock">Low Stock Only</option>
+                    <option value="out_of_stock">Out of Stock Only</option>
+                    <option value="in_stock">In Stock Only</option>
+                </select>
             </div>
         </div>
 
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-xl shadow-sm border p-4">
-                <div class="flex items-center">
-                    <div class="p-2 bg-blue-100 rounded-lg">
-                        <i data-feather="package" class="w-5 h-5 text-blue-600"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-600">Low Stock Items</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            {% with low_stock=balances|length %}{{ low_stock }}{% endwith %}
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm border p-4">
-                <div class="flex items-center">
-                    <div class="p-2 bg-green-100 rounded-lg">
-                        <i data-feather="trending-up" class="w-5 h-5 text-green-600"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-600">In Stock Items</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            {% with in_stock=balances|length %}{{ in_stock }}{% endwith %}
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm border p-4">
-                <div class="flex items-center">
-                    <div class="p-2 bg-orange-100 rounded-lg">
-                        <i data-feather="alert-triangle" class="w-5 h-5 text-orange-600"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-600">Need Reorder</p>
-                        <p class="text-xl font-bold text-gray-800">0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm border p-4">
-                <div class="flex items-center">
-                    <div class="p-2 bg-purple-100 rounded-lg">
-                        <i data-feather="refresh-cw" class="w-5 h-5 text-purple-600"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-600">Last Updated</p>
-                        <p class="text-sm font-bold text-gray-800">Just now</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Table Container -->
-        <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
-            <!-- Table Header -->
-            <div class="px-6 py-4 border-b bg-gray-50">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-lg font-semibold text-gray-800">Product Inventory</h2>
-                    <div class="flex space-x-3">
-                        <div class="relative">
-                            <input type="text" placeholder="Search products..." 
-                                   class="pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <i data-feather="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
-                        </div>
-                        <button class="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                            <i data-feather="download" class="w-4 h-4 mr-2"></i>
-                            Export
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Table -->
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                <div class="flex items-center">
-                                    <span>Product</span>
-                                    <i data-feather="chevron-down" class="w-4 h-4 ml-1 text-gray-400"></i>
+        <!-- Table -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Current Stock</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Suggested Qty</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="inventoryTable">
+                    {% for balance in balances %}
+                    <tr class="hover:bg-gray-50 transition-colors inventory-row" 
+                        data-stock-status="{% if balance.quantity_unit <= 0 %}out_of_stock{% elif balance.min_stock > 0 and balance.quantity_unit < balance.min_stock %}low_stock{% else %}in_stock{% endif %}">
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i data-feather="package" class="w-4 h-4 text-blue-600"></i>
                                 </div>
-                            </th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Unit</th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Opening</th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Units</th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Meters</th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Kilograms</th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Min Stock</th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Procurement</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Updated</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        {% for balance in balances %}
-                        <tr class="hover:bg-gray-50 transition duration-150">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                        <i data-feather="package" class="w-4 h-4 text-blue-600"></i>
-                                    </div>
-                                    <div class="ml-4">
-                                        <div class="text-sm font-medium text-gray-900">{{ balance.product.item_name }}</div>
-                                        <div class="text-sm text-gray-500">ID: {{ balance.product.product_id }}</div>
-                                    </div>
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-gray-900">{{ balance.product.name }}</div>
+                                    <div class="text-xs text-gray-500">ID: {{ balance.product.product_id }}</div>
                                 </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {{ balance.unit }}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {{ balance.unit }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-semibold 
+                            {% if balance.quantity_unit <= 0 %}text-red-600
+                            {% elif balance.min_stock > 0 and balance.quantity_unit < balance.min_stock %}text-orange-600
+                            {% else %}text-green-600{% endif %}">
+                            {{ balance.quantity_unit }}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            {% if balance.quantity_unit <= 0 %}
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <i data-feather="x-circle" class="w-3 h-3 mr-1"></i>
+                                    Out of Stock
                                 </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                                {{ balance.opening_inventory }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium 
-                                {% if balance.quantity_unit < balance.min_stock %}text-red-600
-                                {% else %}text-gray-900{% endif %}">
-                                {{ balance.quantity_unit }}
-                                {% if balance.quantity_unit < balance.min_stock %}
-                                <i data-feather="alert-triangle" class="w-4 h-4 inline ml-1 text-red-500"></i>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                                {{ balance.quantity_meters|default:"-" }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                                {{ balance.quantity_klg|default:"-" }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                                {{ balance.min_stock }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right">
-                                {% if balance.procurement_suggestion and balance.procurement_suggestion > 0 %}
+                            {% elif balance.min_stock > 0 and balance.quantity_unit < balance.min_stock %}
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                    <i data-feather="shopping-cart" class="w-3 h-3 mr-1"></i>
-                                    {{ balance.procurement_suggestion }}
+                                    <i data-feather="alert-triangle" class="w-3 h-3 mr-1"></i>
+                                    Low Stock
                                 </span>
-                                {% else %}
-                                <span class="text-xs text-gray-500">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ balance.last_updated|date:"M d, Y H:i" }}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="9" class="px-6 py-12 text-center">
-                                <div class="flex flex-col items-center justify-center">
-                                    <i data-feather="inbox" class="w-12 h-12 text-gray-400 mb-3"></i>
-                                    <h3 class="text-lg font-medium text-gray-900 mb-1">No inventory data</h3>
-                                    <p class="text-gray-500">Get started by adding products to your inventory.</p>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                            {% else %}
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i data-feather="check-circle" class="w-3 h-3 mr-1"></i>
+                                    In Stock
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right">
+                            {% if balance.quantity_unit <= 0 %}
+                                <span class="text-sm font-medium text-gray-900">{{ balance.min_stock|default:"10" }}</span>
+                            {% elif balance.min_stock > 0 and balance.quantity_unit < balance.min_stock %}
+                                {% with deficit=balance.min_stock|add:"-balance.quantity_unit" %}
+                                <span class="text-sm font-medium text-gray-900">{{ deficit }}</span>
+                                {% endwith %}
+                            {% else %}
+                                <span class="text-sm font-medium text-gray-900">10</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            {% with product_id=balance.product.product_id|default:"" %}
+                            {% with product_name=balance.product.name|default:"Unknown"|escapejs %}
+                            {% with unit=balance.unit|default:"units"|escapejs %}
 
-            <!-- Table Footer -->
-            <div class="px-6 py-4 border-t bg-gray-50">
-                <div class="flex justify-between items-center">
-                    <div class="text-sm text-gray-700">
-                        Showing <span class="font-medium">{{ balances|length }}</span> of <span class="font-medium">{{ balances|length }}</span> products
-                    </div>
-                    <div class="flex space-x-2">
-                        <button class="px-3 py-1 border rounded-lg text-sm hover:bg-gray-100">Previous</button>
-                        <button class="px-3 py-1 border rounded-lg text-sm bg-blue-600 text-white">1</button>
-                        <button class="px-3 py-1 border rounded-lg text-sm hover:bg-gray-100">Next</button>
-                    </div>
+                            {% if balance.quantity_unit <= 0 %}
+                                {% with qty=balance.min_stock|default:10 %}
+                                <button onclick="openPurchaseRequestModal('{{ product_id }}', '{{ product_name }}', {{ qty }}, '{{ unit }}')"
+                                        class="px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm">
+                                    <i class="fas fa-file-invoice-dollar mr-1"></i> Request Purchase
+                                </button>
+                                {% endwith %}
+                            {% elif balance.min_stock > 0 and balance.quantity_unit < balance.min_stock %}
+                                {% with qty=balance.min_stock|add:"-balance.quantity_unit" %}
+                                <button onclick="openPurchaseRequestModal('{{ product_id }}', '{{ product_name }}', '{{ qty }}', '{{ unit }}')"
+                                        class="px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm">
+                                    <i class="fas fa-file-invoice-dollar mr-1"></i> Request Purchase
+                                </button>
+                                {% endwith %}
+                            {% else %}
+                                <button onclick="openPurchaseRequestModal('{{ product_id }}', '{{ product_name }}', 10, '{{ unit }}')"
+                                        class="px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm">
+                                    <i class="fas fa-file-invoice-dollar mr-1"></i> Request Purchase
+                                </button>
+                            {% endif %}
+
+                            {% endwith %}
+                            {% endwith %}
+                            {% endwith %}
+                        </td>
+
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {{ balance.last_updated|date:"M d, Y" }}<br>
+                            <span class="text-xs">{{ balance.last_updated|time:"H:i" }}</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-4 py-8 text-center">
+                            <div class="flex flex-col items-center justify-center">
+                                <i data-feather="inbox" class="w-12 h-12 text-gray-400 mb-3"></i>
+                                <h3 class="text-lg font-medium text-gray-900 mb-1">No inventory data</h3>
+                                <p class="text-gray-500">Start by adding products to Stock In</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Table Footer -->
+        {% if balances %}
+        <div class="mt-6 pt-4 border-t">
+            <div class="flex justify-between items-center text-sm text-gray-600">
+                <div>
+                    Showing <span class="font-medium">{{ balances|length }}</span> products
+                </div>
+                <div class="text-sm">
+                    Last updated: {% now "M d, Y H:i" %}
                 </div>
             </div>
         </div>
-    </main>
+        {% endif %}
+    </div>
+</main>
 
-    <script>
-        // Initialize feather icons
-        feather.replace();
+<!-- Purchase Request Modal -->
+<div id="purchaseRequestModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-800">Create Purchase Request</h2>
+            <button onclick="closePurchaseRequestModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
         
-        // Add some interactivity
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add row click functionality
-            const rows = document.querySelectorAll('tbody tr');
-            rows.forEach(row => {
-                row.addEventListener('click', function() {
-                    // Remove previous selections
-                    rows.forEach(r => r.classList.remove('bg-blue-50'));
-                    // Add selection to current row
-                    this.classList.add('bg-blue-50');
-                });
-            });
-        });
-    </script>
+        <form method="POST" action="{% url 'create_purchase_request_from_balance' %}">
+            {% csrf_token %}
+            <input type="hidden" name="product_id" id="purchaseProductId">
+            <input type="hidden" name="source" value="inventory_balance">
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Product</label>
+                <div class="p-3 bg-gray-50 rounded-lg border">
+                    <p class="font-medium" id="purchaseProductName">-</p>
+                    <p class="text-sm text-gray-600">Unit: <span id="purchaseUnit">units</span></p>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Quantity to Purchase *</label>
+                <input type="number" 
+                       name="quantity" 
+                       id="purchaseQtyInput"
+                       min="1" 
+                       step="1" 
+                       required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Enter the quantity you want to purchase</p>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Estimated Unit Price (₱) *</label>
+                <input type="number" 
+                       name="estimated_unit_price" 
+                       min="0" 
+                       step="0.01" 
+                       required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="0.00">
+                <p class="text-xs text-gray-500 mt-1">Enter estimated price per unit</p>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Remarks (Optional)</label>
+                <textarea name="remarks" rows="3"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Reason for purchase request..."></textarea>
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button type="button" 
+                        onclick="closePurchaseRequestModal()"
+                        class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium">
+                    <i class="fas fa-paper-plane mr-1"></i> Submit for Approval
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
-    <!-- Inventory JS (includes InventorySidebar component) -->
-    <script src="{% static 'js/inventory_dashboard.js' %}"></script>
+<!-- MODAL Structure -->
+<div id="reqModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-800">Inventory Details</h2>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="modalContent"></div>
+        <div class="mt-6 flex justify-end">
+            <button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize feather icons and functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+        
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const stockFilter = document.getElementById('stockFilter');
+        const tableRows = document.querySelectorAll('.inventory-row');
+        
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function() {
+                filterTable();
+            });
+        }
+        
+        if (stockFilter) {
+            stockFilter.addEventListener('change', function() {
+                filterTable();
+            });
+        }
+        
+        function filterTable() {
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+            const filterValue = stockFilter ? stockFilter.value : 'all';
+            
+            tableRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const stockStatus = row.dataset.stockStatus;
+                
+                const matchesSearch = text.includes(searchTerm);
+                const matchesFilter = filterValue === 'all' || stockStatus === filterValue;
+                
+                if (matchesSearch && matchesFilter) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+        
+        // Auto-remove messages after 5 seconds
+        setTimeout(function() {
+            const messages = document.querySelectorAll('.p-4.rounded-lg');
+            messages.forEach(function(message) {
+                message.style.transition = 'opacity 0.5s';
+                message.style.opacity = '0';
+                setTimeout(() => message.remove(), 500);
+            });
+        }, 5000);
+    });
+    
+    // Purchase Request Functions
+    function openPurchaseRequestModal(productId, productName, quantity, unit) {
+        document.getElementById('purchaseProductId').value = productId;
+        document.getElementById('purchaseProductName').textContent = productName;
+        document.getElementById('purchaseUnit').textContent = unit;
+        document.getElementById('purchaseQtyInput').value = quantity;
+        document.getElementById('purchaseQtyInput').min = 1;
+        
+        document.getElementById("purchaseRequestModal").classList.remove("hidden");
+    }
+    
+    function closePurchaseRequestModal() {
+        document.getElementById("purchaseRequestModal").classList.add("hidden");
+        resetPurchaseRequestForm();
+    }
+    
+    function resetPurchaseRequestForm() {
+        document.getElementById('purchaseProductName').textContent = '-';
+        document.getElementById('purchaseUnit').textContent = 'units';
+        document.getElementById('purchaseQtyInput').value = '';
+        document.getElementById('purchaseRequestModal').querySelector('form').reset();
+    }
+    
+    // Modal Functions
+    function openModal(reqId) {
+        fetch(`/inventory-requisition/view/${reqId}/`)
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById("modalContent").innerHTML = html;
+                document.getElementById("reqModal").classList.remove("hidden");
+            })
+            .catch(error => {
+                console.error('Error loading modal:', error);
+                document.getElementById("modalContent").innerHTML = 
+                    '<div class="text-red-500 p-4">Error loading requisition details.</div>';
+            });
+    }
+    
+    function closeModal() {
+        document.getElementById("reqModal").classList.add("hidden");
+        document.getElementById("modalContent").innerHTML = '';
+    }
+    
+    // Close modals when clicking outside
+    document.getElementById('purchaseRequestModal').addEventListener('click', function(e) {
+        if (e.target.id === 'purchaseRequestModal') {
+            closePurchaseRequestModal();
+        }
+    });
+    
+    document.getElementById('reqModal').addEventListener('click', function(e) {
+        if (e.target.id === 'reqModal') {
+            closeModal();
+        }
+    });
+</script>
+
+<script src="{% static 'js/inventory_dashboard.js' %}"></script>
+
+<style>
+    body {
+        margin: 0;
+        font-family: 'Poppins', sans-serif;
+        background: linear-gradient(135deg, #9722be, #1e1e2d);
+        color: #000000;
+        min-height: 100vh;
+    }
+    .main-content {
+        margin-left: 250px;
+        padding: 30px;
+        min-height: 100vh;
+        box-sizing: border-box;
+    }
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+            padding: 20px;
+        }
+    }
+    table td, table th {
+        color: black !important;
+    }
+</style>
 </body>
 </html>

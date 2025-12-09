@@ -49,6 +49,7 @@
       border-radius: 8px;
       transition: 0.3s;
       font-weight: 500;
+      position: relative;
     }
 
     .sidebar a:hover {
@@ -59,6 +60,20 @@
       font-size: 18px;
     }
 
+    .badge {
+      position: absolute;
+      right: 10px;
+      background: #ff4757;
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     /* MAIN CONTENT */
     .main-content {
       flex: 1;
@@ -67,6 +82,27 @@
       flex-direction: column;
     }
 
+    /* Welcome Header */
+    .welcome-header {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 30px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    }
+
+    .welcome-header h2 {
+      margin: 0 0 10px 0;
+      color: #ffdd59;
+    }
+
+    .welcome-header p {
+      margin: 0;
+      opacity: 0.9;
+    }
+
+    /* CARDS GRID */
     .cards {
       display: flex;
       flex-wrap: wrap;
@@ -86,10 +122,16 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      transition: transform 0.3s;
+      transition: all 0.3s;
+      cursor: pointer;
+      border: 2px solid transparent;
     }
 
-    .card:hover { transform: translateY(-5px); }
+    .card:hover { 
+      transform: translateY(-5px); 
+      border-color: #00c853;
+      box-shadow: 0 12px 30px rgba(0, 200, 83, 0.2);
+    }
 
     .card i {
       font-size: 30px;
@@ -104,15 +146,72 @@
     }
 
     .card-link {
-      display: block;           /* ensures it behaves like a block element */
-      text-decoration: none;    /* removes underline */
-      color: inherit;           /* keeps text color same as card */
+      display: block;
+      text-decoration: none;
+      color: inherit;
     }
 
-    .card-link .card {
-      margin: 0;                /* remove any extra spacing if needed */
+    /* Pending Badge for cards */
+    .pending-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #ff4757;
+      color: white;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
     }
 
+    .card-container {
+      position: relative;
+      flex: 1 1 200px;
+    }
+
+    /* Stats Overview */
+    .stats-container {
+      display: flex;
+      gap: 20px;
+      margin: 30px 0;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      flex: 1;
+      min-width: 200px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 20px;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+
+    .stat-card h3 {
+      margin: 0 0 10px 0;
+      font-size: 28px;
+      color: #00c853;
+    }
+
+    .stat-card p {
+      margin: 0;
+      opacity: 0.8;
+      font-size: 14px;
+    }
+    /* Logout button */
+        .logout-btn {
+            margin-top: auto;
+            margin-bottom: 10px;
+            background: rgba(255, 71, 87, 0.2);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 71, 87, 0.3);
+        }
 
     /* RESPONSIVE */
     @media (max-width: 768px) {
@@ -121,6 +220,24 @@
       .sidebar a { margin-bottom: 0; margin-right: 10px; white-space: nowrap; }
       .main-content { padding: 15px; }
       .cards { justify-content: center; }
+      .card-container { flex: 1 1 100%; }
+    }
+
+    /* Success message box */
+    .message-box {
+      background: rgba(0, 200, 83, 0.1);
+      border: 1px solid #00c853;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .message-box i {
+      color: #00c853;
+      font-size: 20px;
     }
   </style>
 </head>
@@ -129,21 +246,105 @@
   <!-- LEFT NAVBAR -->
   <div class="sidebar">
     <h2>Admin Panel</h2>
+    <a href="{% url 'adminDashboard' %}"><i class="fa-solid fa-house"></i>Home</a>
+    
+    {% if request.session.admin_role == 'super_admin' %}
+    <a href="{% url 'pending_accounts' %}">
+      <i class="fa-solid fa-user-clock"></i> Pending Accounts
+      {% if pending_count > 0 %}
+      <span class="badge">{{ pending_count }}</span>
+      {% endif %}
+    </a>
+    <a href="{% url 'manage_accounts' %}">
+      <i class="fa-solid fa-users-cog"></i> Manage Accounts
+    </a>
+    {% endif %}
+    
     <a href="#"><i class="fa-solid fa-chart-line"></i> Report & Statistics</a>
-    <a href="{% url 'addEmployees' %}"><i class="fa-solid fa-users"></i> Manage Employees</a>
-    <a href="{% url 'requestApproval' %}"><i class="fa-solid fa-envelope"></i> Request</a>
+    <a href="{% url 'requestApproval' %}"><i class="fa-solid fa-envelope"></i> Request Approval</a>
+    <a href="{% url 'purchase_requests_list' %}"><i class="fa-solid fa-file-invoice-dollar"></i> Purchase Approval</a>
     <a href="#"><i class="fa-solid fa-bell"></i> Notification</a>
-    <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
+    <a href="{% url 'edit_my_account' %}"><i class="fa-solid fa-gear"></i> My Account</a>
+    <a href="{% url 'admin_login' %}" class="logout-btn">
+      <i class="fa-solid fa-right-from-bracket"></i> Logout
+    </a>
   </div>
 
   <!-- MAIN CONTENT -->
   <div class="main-content">
-    <h2>Dashboard</h2>
-    <div class="cards">
-      <div class="card">
-        <i class="fa-solid fa-chart-line"></i>
-        <span>Reports</span>
+    <!-- Welcome Message -->
+    <div class="welcome-header">
+      <h2>Welcome, {{ request.session.admin_name }}!</h2>
+      <p>
+        <i class="fa-solid fa-user-circle"></i> 
+        Logged in as {{ request.session.admin_role|title }}
+      </p>
+      <div class="time-display" id="currentTime">
+        <i class="fa-solid fa-clock"></i>
+        Loading time...
       </div>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="message-box">
+          <i class="fa-solid fa-circle-check"></i>
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <!-- Stats Overview (for Super Admin) -->
+    {% if request.session.admin_role == 'super_admin' %}
+    <div class="stats-container">
+      <div class="stat-card">
+        <h3>{{ total_accounts }}</h3>
+        <p>Total Accounts</p>
+      </div>
+      <div class="stat-card">
+        <h3>{{ active_accounts }}</h3>
+        <p>Active Accounts</p>
+      </div>
+      <div class="stat-card">
+        <h3>{{ pending_count }}</h3>
+        <p>Pending Approvals</p>
+      </div>
+      <div class="stat-card">
+        <h3>0</h3>
+        <p>Today's Logins</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick Access Cards -->
+    <h3>Quick Access</h3>
+    <div class="cards">
+      {% if request.session.admin_role == 'super_admin' %}
+      <a href="{% url 'pending_accounts' %}" class="card-container">
+        {% if pending_count > 0 %}
+        <div class="pending-badge">{{ pending_count }}</div>
+        {% endif %}
+        <div class="card">
+          <i class="fa-solid fa-user-check"></i>
+          <span>Approve Accounts</span>
+          <small style="font-size: 12px; opacity: 0.8; margin-top: 5px;">
+            {% if pending_count > 0 %}
+            {{ pending_count }} pending
+            {% else %}
+            No pending requests
+            {% endif %}
+          </small>
+        </div>
+      </a>
+
+      <a href="{% url 'manage_accounts' %}" class="card-link">
+        <div class="card">
+          <i class="fa-solid fa-users-gear"></i>
+          <span>Manage All Accounts</span>
+        </div>
+      </a>
+      {% endif %}
+
       <a href="{% url 'addEmployees' %}" class="card-link">
         <div class="card">
           <i class="fa-solid fa-users"></i>
@@ -152,16 +353,29 @@
       </a>
 
       <a href="{% url 'requestApproval' %}" class="card-link">
-      <div class="card">
-        <i class="fa-solid fa-envelope"></i>
-        <span>Requests</span>
-      </div>
+        <div class="card">
+          <i class="fa-solid fa-envelope"></i>
+          <span>Request Approvals</span>
+        </div>
       </a>
+
+      <a href="{% url 'purchase_requests_list' %}" class="card-link">
+        <div class="card">
+          <i class="fa-solid fa-file-invoice-dollar"></i>
+          <span>Purchase Approvals</span>
+        </div>
+      </a>
+
+      <div class="card">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>Reports</span>
+      </div>
 
       <div class="card">
         <i class="fa-solid fa-bell"></i>
         <span>Notifications</span>
       </div>
+
       <div class="card">
         <i class="fa-solid fa-gear"></i>
         <span>Settings</span>
@@ -169,5 +383,75 @@
     </div>
   </div>
 
+  <script>
+
+      function updateCurrentTime() {
+      const now = new Date();
+      
+      // Format options
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      };
+      
+      // Format the date
+      const formattedTime = now.toLocaleDateString('en-US', options);
+      
+      // Update the time display
+      document.getElementById('currentTime').innerHTML = `
+        <i class="fa-solid fa-clock"></i>
+        ${formattedTime}
+      `;
+    }
+    
+    // Update time immediately and every second
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+
+    // Auto-refresh page every 30 seconds if there are pending accounts
+    const hasPendingAccounts = ('{{ pending_accounts|length }}') > 0;
+    if (hasPendingAccounts) {
+      setTimeout(() => {
+        location.reload();
+      }, 30000);
+    }
+
+    // Auto-refresh dashboard every 60 seconds
+    setInterval(() => {
+      location.reload();
+    }, 60000);
+
+    // Show logout confirmation
+    document.querySelectorAll('a[href*="logout"]').forEach(link => {
+      link.addEventListener('click', function(e) {
+        if (!confirm('Are you sure you want to logout?')) {
+          e.preventDefault();
+        }
+      });
+    });
+
+    // Highlight current page in sidebar
+    const currentPath = window.location.pathname;
+    document.querySelectorAll('.sidebar a').forEach(link => {
+      if (link.getAttribute('href') === currentPath) {
+        link.style.background = 'rgba(0, 200, 83, 0.3)';
+        link.style.borderLeft = '4px solid #00c853';
+      }
+    });
+
+    document.querySelectorAll('.logout-btn').forEach(link => {
+        link.addEventListener('click', function(e) {
+            if (!confirm('Are you sure you want to logout?')) {
+                e.preventDefault();
+            }
+        });
+    });
+  </script>
 </body>
 </html>

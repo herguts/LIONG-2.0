@@ -3,23 +3,10 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>LIONG | Request Supplies</title>
+    <title>LIONG | Employee Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
-</head>
-<body class="bg-gray-50">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <h2>Employee Panel</h2>
-        <a href="{% url 'employeeDashboard' %}" class="active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-        <a href="{% url 'request' %}"><i class="fa-solid fa-cart-shopping"></i> Request Supplies</a>
-        <a href="#"><i class="fa-solid fa-clock-rotate-left"></i> Request History</a>
-        <a href="#"><i class="fa-solid fa-bell"></i> Notifications</a>
-        <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
-    </div>
-
-    </main>
-
+    
     <style>
         body {
             margin: 0;
@@ -45,6 +32,7 @@
             font-size: 22px;
             font-weight: 700;
             text-align: center;
+            color: #ffdd59;
         }
 
         .sidebar a {
@@ -58,31 +46,548 @@
             border-radius: 8px;
             transition: 0.3s;
             font-weight: 500;
+            position: relative;
         }
 
-        .sidebar a:hover, .sidebar a.active {
-            background: rgba(255, 255, 255, 0.15);
+        .sidebar a:hover { 
+            background: rgba(255, 255, 255, 0.15) !important; 
         }
 
-        .sidebar a i { font-size: 16px; }
+        .sidebar a.active {
+            background: rgba(0, 200, 83, 0.3);
+            border-left: 4px solid #00c853;
+        }
+
+        .sidebar a i { font-size: 18px; }
+
+        .badge {
+            position: absolute;
+            right: 10px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
         .main-content {
             flex: 1;
             padding: 30px;
             display: flex;
             flex-direction: column;
-            color: #000000;
+            overflow-y: auto;
         }
 
+        /* Welcome Header */
+        .welcome-header {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .welcome-header h2 {
+            margin: 0 0 10px 0;
+            color: #ffdd59;
+            font-size: 28px;
+        }
+
+        .welcome-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .welcome-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            background: #00c853;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #00c853;
+            box-shadow: 0 12px 30px rgba(0, 200, 83, 0.2);
+        }
+
+        .stat-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            color: #ffdd59;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #00c853;
+        }
+
+        .stat-label {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .stat-desc {
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .quick-actions h3 {
+            margin: 0 0 20px 0;
+            color: #ffdd59;
+            font-size: 24px;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            transition: all 0.3s;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .action-btn:hover {
+            background: rgba(0, 200, 83, 0.2);
+            transform: translateX(5px);
+            border-color: #00c853;
+        }
+
+        .action-btn i {
+            font-size: 24px;
+            color: #ffdd59;
+        }
+
+        .action-text h4 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .action-text p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        /* Recent Activity */
+        .activity-section {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .activity-section h3 {
+            margin: 0 0 20px 0;
+            color: #ffdd59;
+            font-size: 24px;
+        }
+
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border-left: 4px solid transparent;
+        }
+
+        .activity-item.pending { border-left-color: #ffdd59; }
+        .activity-item.approved { border-left-color: #00c853; }
+        .activity-item.rejected { border-left-color: #ff4757; }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .pending .activity-icon { background: rgba(255, 221, 89, 0.2); color: #ffdd59; }
+        .approved .activity-icon { background: rgba(0, 200, 83, 0.2); color: #00c853; }
+        .rejected .activity-icon { background: rgba(255, 71, 87, 0.2); color: #ff4757; }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-title {
+            margin: 0 0 5px 0;
+            font-weight: 600;
+        }
+
+        .activity-time {
+            font-size: 12px;
+            opacity: 0.6;
+        }
+
+        .activity-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .pending .activity-status { background: rgba(255, 221, 89, 0.2); color: #ffdd59; }
+        .approved .activity-status { background: rgba(0, 200, 83, 0.2); color: #00c853; }
+        .rejected .activity-status { background: rgba(255, 71, 87, 0.2); color: #ff4757; }
+
+        /* Time Display */
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .empty-state i {
+            font-size: 50px;
+            color: #ffdd59;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            opacity: 0.7;
+            margin: 0;
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
             body { flex-direction: column; }
-            .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 15px; }
-            .sidebar a { margin-bottom: 0; margin-right: 10px; white-space: nowrap; }
-            .main-content { padding: 15px; }
+            .sidebar { 
+                width: 100%; 
+                flex-direction: row; 
+                overflow-x: auto; 
+                padding: 15px;
+                box-shadow: none;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
+            .sidebar a { 
+                margin-bottom: 0; 
+                margin-right: 10px; 
+                white-space: nowrap; 
+                padding: 10px;
+            }
+            .main-content { padding: 20px; }
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .actions-grid {
+                grid-template-columns: 1fr;
+            }
+            .welcome-header h2 {
+                font-size: 24px;
+            }
         }
-        
+
         .hidden { display: none; }
     </style>
+</head>
+<body>
 
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>Employee Panel</h2>
+        <a href="{% url 'employeeDashboard' %}" class="active">
+            <i class="fa-solid fa-gauge"></i> Dashboard
+        </a>
+        <a href="{% url 'request' %}">
+            <i class="fa-solid fa-cart-shopping"></i> Request Supplies
+        </a>
+        <a href="{% url 'request_history' %}">
+            <i class="fa-solid fa-clock-rotate-left"></i> Request History
+        </a>
+        <a href="{% url 'admin_login' %}" onclick="return confirmLogout()">
+            <i class="fa-solid fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Welcome Header -->
+        <div class="welcome-header">
+            <h2>Welcome, {{ request.session.admin_name }}!</h2>
+            <p>Everything you need to manage your supplies in one place</p>
+            
+            <div class="user-info">
+                <div class="user-avatar">
+                    {{ request.session.admin_name|slice:"0:1"|upper }}
+                </div>
+                <div>
+                    <p><i class="fa-solid fa-user-circle"></i> Employee Account</p>
+                    <div class="time-display" id="currentTime">
+                        <i class="fa-solid fa-clock"></i>
+                        Loading time...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card" onclick="window.location.href='{% url 'request_history' %}'">
+                <i class="fas fa-file-alt stat-icon"></i>
+                <div class="stat-value">{{ total_requests }}</div>
+                <div class="stat-label">Total Requests</div>
+                <div class="stat-desc">All supply requests made</div>
+            </div>
+
+            <div class="stat-card" onclick="window.location.href='{% url 'request_history' %}?status=pending'">
+                <i class="fas fa-clock stat-icon"></i>
+                <div class="stat-value">{{ pending_requests }}</div>
+                <div class="stat-label">Pending</div>
+                <div class="stat-desc">Awaiting approval</div>
+            </div>
+
+            <div class="stat-card" onclick="window.location.href='{% url 'request_history' %}?status=approved'">
+                <i class="fas fa-check-circle stat-icon"></i>
+                <div class="stat-value">{{ approved_requests }}</div>
+                <div class="stat-label">Approved</div>
+                <div class="stat-desc">Successfully approved</div>
+            </div>
+
+            <div class="stat-card" onclick="window.location.href='{% url 'request_history' %}?status=rejected'">
+                <i class="fas fa-times-circle stat-icon"></i>
+                <div class="stat-value">{{ rejected_requests }}</div>
+                <div class="stat-label">Rejected</div>
+                <div class="stat-desc">Requests not approved</div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <h3><i class="fa-solid fa-bolt"></i> Quick Actions</h3>
+            <div class="actions-grid">
+                <a href="{% url 'request' %}" class="action-btn">
+                    <i class="fa-solid fa-cart-plus"></i>
+                    <div class="action-text">
+                        <h4>New Request</h4>
+                        <p>Request new supplies</p>
+                    </div>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+
+                <a href="{% url 'request_history' %}" class="action-btn">
+                    <i class="fa-solid fa-list-check"></i>
+                    <div class="action-text">
+                        <h4>View History</h4>
+                        <p>Check all your requests</p>
+                    </div>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+
+                <a href="#" class="action-btn" onclick="showHelp()">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <div class="action-text">
+                        <h4>Help & Support</h4>
+                        <p>Need assistance?</p>
+                    </div>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+
+                <a href="#" class="action-btn" onclick="showProfile()">
+                    <i class="fa-solid fa-user-gear"></i>
+                    <div class="action-text">
+                        <h4>Profile Settings</h4>
+                        <p>Update your information</p>
+                    </div>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="activity-section">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</h3>
+            
+            {% if recent_activity %}
+            <div class="activity-list">
+                {% for activity in recent_activity %}
+                <div class="activity-item {{ activity.status }}">
+                    <div class="activity-icon">
+                        {% if activity.status == 'pending' %}
+                        <i class="fa-solid fa-clock"></i>
+                        {% elif activity.status == 'approved' %}
+                        <i class="fa-solid fa-check"></i>
+                        {% else %}
+                        <i class="fa-solid fa-times"></i>
+                        {% endif %}
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">{{ activity.title }}</div>
+                        <div class="activity-time">{{ activity.time }}</div>
+                    </div>
+                    <span class="activity-status">{{ activity.status|title }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fa-solid fa-inbox"></i>
+                <p>No recent activity found</p>
+            </div>
+            {% endif %}
+
+            <div style="text-align: right; margin-top: 20px;">
+                <a href="{% url 'request_history' %}" style="color: #00c853; text-decoration: none; font-weight: 600;">
+                    View All Activity <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Real-time clock
+        function updateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            const timeString = now.toLocaleDateString('en-US', options);
+            document.getElementById('currentTime').innerHTML = 
+                '<i class="fa-solid fa-clock"></i> ' + timeString;
+        }
+        
+        // Update time immediately and every second
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Logout confirmation
+        function confirmLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = "{% url 'admin_login' %}?logout=true";
+                return true;
+            }
+            return false;
+        }
+
+        // Highlight current page in sidebar
+        const currentPath = window.location.pathname;
+        document.querySelectorAll('.sidebar a').forEach(link => {
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('active');
+            }
+        });
+
+        // Auto-refresh dashboard every 60 seconds
+        setInterval(function() {
+            location.reload();
+        }, 60000);
+
+        // Help modal
+        function showHelp() {
+            alert('Need help? Contact your department administrator or email support@liong.com');
+        }
+
+        // Profile modal (placeholder)
+        function showProfile() {
+            alert('Profile settings feature coming soon!');
+        }
+
+        // Add some animations
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animate stat cards on load
+            const statCards = document.querySelectorAll('.stat-card');
+            statCards.forEach(function(card, index) {
+                card.style.animationDelay = (index * 0.1) + 's';
+                card.classList.add('animate__animated', 'animate__fadeInUp');
+            });
+        });
+    </script>
+
+    <!-- Add animate.css for animations -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 </body>
 </html>

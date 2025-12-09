@@ -104,6 +104,17 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# Disable Django's built-in authentication for your custom views
+LOGIN_URL = '/login/'  # Your custom login URL
+
+# If you're not using Django's built-in auth, disable it
+AUTHENTICATION_BACKENDS = []
+
+# Or if you need it for admin, keep only for admin
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',  # Keep this only for Django admin
+]
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 

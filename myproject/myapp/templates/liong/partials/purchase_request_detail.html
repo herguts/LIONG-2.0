@@ -1,0 +1,114 @@
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="border-b pb-4">
+        <div class="flex justify-between items-start">
+            <div>
+                <h3 class="text-xl font-bold text-gray-800">Purchase Request #PR-{{ pr.request_id }}</h3>
+                <div class="flex items-center space-x-4 mt-2">
+                    <span class="px-3 py-1 rounded-full text-sm font-medium 
+                        {% if pr.status == 'approved' %}bg-green-100 text-green-800
+                        {% elif pr.status == 'pending' %}bg-yellow-100 text-yellow-800
+                        {% elif pr.status == 'denied' %}bg-red-100 text-red-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ pr.get_status_display }}
+                    </span>
+                    <span class="text-sm text-gray-600">Requested by: {{ pr.requested_by.name }}</span>
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="text-2xl font-bold text-gray-800">₱{{ pr.total_estimated_cost|floatformat:2 }}</p>
+                <p class="text-sm text-gray-600">Estimated Cost</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requisition Info -->
+    <div class="p-4 bg-blue-50 rounded-lg">
+        <h4 class="font-semibold text-blue-800 mb-2">Related Requisition</h4>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm text-gray-600">Requisition #</p>
+                <p class="font-medium">#{{ pr.requisition.requisition_id }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Employee</p>
+                <p class="font-medium">{{ pr.requisition.employee.employee_name }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Department</p>
+                <p class="font-medium">{{ pr.requisition.employee.department|default:"-" }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Date Requested</p>
+                <p class="font-medium">{{ pr.requisition.date_requested|date:"M d, Y" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Items Table -->
+    <div>
+        <h4 class="text-lg font-semibold text-gray-800 mb-3">Items to Purchase</h4>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Est. Unit Price</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total Est. Price</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for item in pr.purchaserequestitem_set.all %}
+                    <tr>
+                        <td class="px-4 py-3">{{ item.product.name }}</td>
+                        <td class="px-4 py-3">{{ item.product.unit }}</td>
+                        <td class="px-4 py-3 font-medium">{{ item.quantity_to_purchase }}</td>
+                        <td class="px-4 py-3">₱{{ item.estimated_unit_price|floatformat:2 }}</td>
+                        <td class="px-4 py-3 font-medium">₱{{ item.total_estimated_price|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="bg-gray-50">
+                        <td colspan="4" class="px-4 py-3 text-right font-bold">Total:</td>
+                        <td class="px-4 py-3 font-bold text-lg">₱{{ pr.total_estimated_cost|floatformat:2 }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Remarks -->
+    {% if pr.remarks %}
+    <div class="p-4 bg-gray-50 rounded-lg border">
+        <h4 class="font-semibold text-gray-800 mb-2">Remarks</h4>
+        <p class="text-gray-700">{{ pr.remarks }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Approval Info -->
+    {% if pr.status == 'approved' %}
+    <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+        <h4 class="font-semibold text-green-800 mb-2">
+            <i class="fas fa-check-circle mr-1"></i> Approval Details
+        </h4>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm text-gray-600">Approved by</p>
+                <p class="font-medium">{{ pr.approved_by.name }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Approval Date</p>
+                <p class="font-medium">{{ pr.approval_date|date:"M d, Y H:i" }}</p>
+            </div>
+        </div>
+    </div>
+    {% elif pr.status == 'denied' and pr.denial_reason %}
+    <div class="p-4 bg-red-50 rounded-lg border border-red-200">
+        <h4 class="font-semibold text-red-800 mb-2">
+            <i class="fas fa-times-circle mr-1"></i> Denial Reason
+        </h4>
+        <p class="text-red-700">{{ pr.denial_reason }}</p>
+    </div>
+    {% endif %}
+</div>
