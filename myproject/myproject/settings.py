@@ -84,6 +84,17 @@ DATABASES = {
     }
 }
 
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  # or your SMTP server
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'henryjamesmadrid14@gmail.com'
+EMAIL_HOST_PASSWORD = 'bfgd pvpu nxfq ogvb'  # Use app password for Gmail
+DEFAULT_FROM_EMAIL = 'your-email@gmail.com'
+COMPANY_NAME = 'Liong Inventory System'  # Add your company name
+
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

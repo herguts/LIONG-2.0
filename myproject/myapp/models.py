@@ -486,10 +486,14 @@ class SupplierQuotation(models.Model):
 class PurchaseReceiving(models.Model):
     RECEIVING_STATUS = [
         ('pending', 'Pending QC'),
-        ('accepted', 'Accepted'),
-        ('rejected', 'Rejected'),
-        ('partial', 'Partially Accepted'),
+        ('partial', 'Partially Received'),
+        ('complete', 'Complete'),
+        ('with_rejections', 'Complete with Rejections'),
+        ('cancelled', 'Cancelled'),
     ]
+
+    receiving_number = models.CharField(max_length=50, unique=True, blank=True, null=True)
+
 
     receiving_id = models.AutoField(primary_key=True)
     po = models.ForeignKey(
@@ -508,9 +512,255 @@ class PurchaseReceiving(models.Model):
     carrier = models.CharField(max_length=100, blank=True, null=True)
     quality_check_notes = models.TextField(blank=True, null=True)
     overall_status = models.CharField(max_length=20, choices=RECEIVING_STATUS, default='pending')
+    receiving_number = models.CharField(max_length=50, unique=True, blank=True, null=True)
 
     class Meta:
         db_table = 'purchase_receiving'
+
+    def save(self, *args, **kwargs):
+        if not self.receiving_number:
+            self.receiving_number = f"REC{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Receiving #{self.receiving_number}"
+
+class QualityCheck(models.Model):
+    REJECTION_DISPOSITION_CHOICES = [
+        ('return', 'Return to Supplier'),
+        ('keep_as_rejected', 'Keep as Rejected Stock'),
+        ('destroy', 'Destroy/Dispose'),
+        ('replace', 'Request Replacement'),
+    ]
+    
+    check_id = models.AutoField(primary_key=True)
+    receiving = models.ForeignKey(
+        PurchaseReceiving, 
+        on_delete=models.CASCADE,
+        db_column='receiving_id'
+    )
+    checker = models.ForeignKey(
+        Admin,
+        on_delete=models.SET_NULL,
+        null=True,
+        db_column='checker'
+    )
+    check_date = models.DateTimeField(default=timezone.now)
+    overall_status = models.CharField(max_length=20, default='pending')
+    notes = models.TextField(blank=True, null=True)
+    rejection_disposition = models.CharField(
+        max_length=20, 
+        choices=REJECTION_DISPOSITION_CHOICES, 
+        blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'quality_check'
+
+
+class RejectedItem(models.Model):
+    REJECTION_REASON_CHOICES = [
+        ('damaged', 'Damaged Goods'),
+        ('wrong_item', 'Wrong Item'),
+        ('expired', 'Expired Product'),
+        ('poor_quality', 'Poor Quality'),
+        ('shortage', 'Short Quantity'),
+        ('wrong_spec', 'Wrong Specifications'),
+        ('late_delivery', 'Late Delivery'),
+        ('packaging_issue', 'Packaging Issue'),
+        ('other', 'Other'),
+    ]
+    
+    rejected_id = models.AutoField(primary_key=True)
+    receiving = models.ForeignKey(
+        PurchaseReceiving, 
+        on_delete=models.CASCADE,
+        db_column='receiving_id'
+    )
+    po_item = models.ForeignKey(
+        PurchaseOrderItem, 
+        on_delete=models.CASCADE,
+        db_column='po_item_id'
+    )
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    reason = models.CharField(max_length=20, choices=REJECTION_REASON_CHOICES)
+    details = models.TextField(blank=True, null=True)
+    disposition = models.CharField(max_length=20)
+    disposition_date = models.DateTimeField(null=True, blank=True)
+    disposition_notes = models.TextField(blank=True, null=True)
+    disposed_by = models.ForeignKey(
+        Admin, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        db_column='disposed_by'
+    )
+    is_resolved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'rejected_item'
+
+    def __str__(self):
+        return f"Rejected {self.quantity} of {self.po_item.product.name}"
+
+
+class RejectedStock(models.Model):
+    STATUS_CHOICES = [
+        ('quarantine', 'In Quarantine'),
+        ('rework', 'Awaiting Rework'),
+        ('scrap', 'For Scrap'),
+        ('return_pending', 'Pending Return'),
+        ('returned', 'Returned'),
+        ('destroyed', 'Destroyed'),
+        ('replaced', 'Replaced'),
+    ]
+    
+    rejected_stock_id = models.AutoField(primary_key=True)
+    rejected_item = models.ForeignKey(
+        RejectedItem, 
+        on_delete=models.CASCADE,
+        db_column='rejected_id'
+    )
+    product = models.ForeignKey(
+        Products, 
+        on_delete=models.CASCADE,
+        db_column='product_id'
+    )
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    batch_number = models.CharField(max_length=100, blank=True, null=True)
+    location = models.CharField(max_length=200)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='quarantine')
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'rejected_stock'
+
+
+class ReturnRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('shipped', 'Shipped Back'),
+        ('received_supplier', 'Received by Supplier'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    return_id = models.AutoField(primary_key=True)
+    rejected_item = models.ForeignKey(
+        RejectedItem, 
+        on_delete=models.CASCADE,
+        db_column='rejected_id'
+    )
+    request_number = models.CharField(max_length=50, unique=True)
+    requested_by = models.ForeignKey(
+        Admin, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        db_column='requested_by'
+    )
+    requested_date = models.DateTimeField(default=timezone.now)
+    expected_return_date = models.DateField(null=True, blank=True)
+    actual_return_date = models.DateField(null=True, blank=True)
+    return_tracking = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'return_request'
+
+    def save(self, *args, **kwargs):
+        if not self.request_number:
+            self.request_number = f"RTN{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        super().save(*args, **kwargs)
+
+
+class DisposalRecord(models.Model):
+    DISPOSAL_METHOD_CHOICES = [
+        ('landfill', 'Landfill'),
+        ('incineration', 'Incineration'),
+        ('recycling', 'Recycling'),
+        ('donation', 'Donation'),
+        ('other', 'Other'),
+    ]
+    
+    disposal_id = models.AutoField(primary_key=True)
+    rejected_item = models.ForeignKey(
+        RejectedItem, 
+        on_delete=models.CASCADE,
+        db_column='rejected_id'
+    )
+    disposal_number = models.CharField(max_length=50, unique=True)
+    method = models.CharField(max_length=20, choices=DISPOSAL_METHOD_CHOICES)
+    disposal_date = models.DateField()
+    disposed_by = models.ForeignKey(
+        Admin, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        db_column='disposed_by'
+    )
+    witness = models.CharField(max_length=200, blank=True, null=True)
+    certificate_number = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'disposal_record'
+
+    def save(self, *args, **kwargs):
+        if not self.disposal_number:
+            self.disposal_number = f"DISP{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        super().save(*args, **kwargs)
+
+
+class ReplacementRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('ordered', 'Ordered'),
+        ('shipped', 'Shipped'),
+        ('received', 'Received'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    replacement_id = models.AutoField(primary_key=True)
+    rejected_item = models.ForeignKey(
+        RejectedItem, 
+        on_delete=models.CASCADE,
+        db_column='rejected_id'
+    )
+    request_number = models.CharField(max_length=50, unique=True)
+    requested_by = models.ForeignKey(
+        Admin, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        db_column='requested_by'
+    )
+    requested_date = models.DateTimeField(default=timezone.now)
+    expected_delivery_date = models.DateField(null=True, blank=True)
+    replacement_po = models.ForeignKey(
+        PurchaseOrder, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        db_column='replacement_po_id'
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'replacement_request'
+
+    def save(self, *args, **kwargs):
+        if not self.request_number:
+            self.request_number = f"REP{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        super().save(*args, **kwargs)
 
 
 class ReceivedItem(models.Model):

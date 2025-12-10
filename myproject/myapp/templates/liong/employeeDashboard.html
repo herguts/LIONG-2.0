@@ -383,6 +383,7 @@
         <a href="{% url 'request_history' %}">
             <i class="fa-solid fa-clock-rotate-left"></i> Request History
         </a>
+        <a href="{% url 'edit_my_account' %}"><i class="fa-solid fa-gear"></i> My Account</a>
         <a href="{% url 'admin_login' %}" onclick="return confirmLogout()">
             <i class="fa-solid fa-sign-out-alt"></i> Logout
         </a>
@@ -462,16 +463,7 @@
                     <i class="fa-solid fa-arrow-right"></i>
                 </a>
 
-                <a href="#" class="action-btn" onclick="showHelp()">
-                    <i class="fa-solid fa-circle-question"></i>
-                    <div class="action-text">
-                        <h4>Help & Support</h4>
-                        <p>Need assistance?</p>
-                    </div>
-                    <i class="fa-solid fa-arrow-right"></i>
-                </a>
-
-                <a href="#" class="action-btn" onclick="showProfile()">
+                <a href="{% url 'edit_my_account' %}" class="action-btn" onclick="showProfile()">
                     <i class="fa-solid fa-user-gear"></i>
                     <div class="action-text">
                         <h4>Profile Settings</h4>
@@ -482,44 +474,7 @@
             </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="activity-section">
-            <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</h3>
-            
-            {% if recent_activity %}
-            <div class="activity-list">
-                {% for activity in recent_activity %}
-                <div class="activity-item {{ activity.status }}">
-                    <div class="activity-icon">
-                        {% if activity.status == 'pending' %}
-                        <i class="fa-solid fa-clock"></i>
-                        {% elif activity.status == 'approved' %}
-                        <i class="fa-solid fa-check"></i>
-                        {% else %}
-                        <i class="fa-solid fa-times"></i>
-                        {% endif %}
-                    </div>
-                    <div class="activity-content">
-                        <div class="activity-title">{{ activity.title }}</div>
-                        <div class="activity-time">{{ activity.time }}</div>
-                    </div>
-                    <span class="activity-status">{{ activity.status|title }}</span>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="empty-state">
-                <i class="fa-solid fa-inbox"></i>
-                <p>No recent activity found</p>
-            </div>
-            {% endif %}
-
-            <div style="text-align: right; margin-top: 20px;">
-                <a href="{% url 'request_history' %}" style="color: #00c853; text-decoration: none; font-weight: 600;">
-                    View All Activity <i class="fa-solid fa-arrow-right"></i>
-                </a>
-            </div>
-        </div>
+        
     </div>
 
     <script>
@@ -571,10 +526,6 @@
             alert('Need help? Contact your department administrator or email support@liong.com');
         }
 
-        // Profile modal (placeholder)
-        function showProfile() {
-            alert('Profile settings feature coming soon!');
-        }
 
         // Add some animations
         document.addEventListener('DOMContentLoaded', function() {

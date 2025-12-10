@@ -7,233 +7,209 @@
     <title>LIONG | Request History</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 </head>
-<body class="bg-gray-50">
+<body>
     <!-- Sidebar -->
     <div class="sidebar">
         <h2>Employee Panel</h2>
         <a href="{% url 'employeeDashboard' %}"><i class="fa-solid fa-gauge"></i> Dashboard</a>
         <a href="{% url 'request' %}"><i class="fa-solid fa-cart-shopping"></i> Request Supplies</a>
-        <a href="{% url 'request_history' %}"><i class="fa-solid fa-clock-rotate-left"></i> Request History</a>
-        <!-- Add logout link -->
-        <a href="{% url 'admin_login' %}" onclick="logout()"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
+        <a href="{% url 'request_history' %}" class="active">
+            <i class="fa-solid fa-clock-rotate-left"></i> Request History
+        </a>
+        <a href="{% url 'edit_my_account' %}"><i class="fa-solid fa-gear"></i> My Account</a>
+        <a href="{% url 'admin_login' %}" onclick="return confirmLogout()">
+            <i class="fa-solid fa-sign-out-alt"></i> Logout
+        </a>
     </div>
 
     <!-- Main Content -->
     <main class="main-content">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Request History</h1>
-            <div class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border">
-                <i class="fas fa-user mr-1"></i>
-                {{ current_user }}
+        <!-- Welcome Header -->
+        <div class="welcome-header">
+            <div class="user-info">
+                <div class="user-avatar">
+                    {{ current_user|slice:"0:1"|upper }}
+                </div>
+                <div>
+                    <h2>Request History</h2>
+                    <p>Track all your supply requisition requests</p>
+                    <div class="time-display" id="currentTime">
+                        <i class="fa-solid fa-clock"></i>
+                        Loading time...
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Django Messages -->
         {% if messages %}
-        <div class="mb-6">
+        <div class="messages-container">
             {% for message in messages %}
-            <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %} mr-2"></i>
-                        {{ message }}
-                    </div>
-                    <button onclick="this.parentElement.parentElement.style.display='none'" class="text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times"></i>
-                    </button>
+            <div class="message {% if message.tags == 'success' %}message-success{% elif message.tags == 'error' %}message-error{% else %}message-info{% endif %}">
+                <div class="message-content">
+                    {% if message.tags == 'success' %}
+                    <i class="fa-solid fa-circle-check"></i>
+                    {% elif message.tags == 'error' %}
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    {% else %}
+                    <i class="fa-solid fa-circle-info"></i>
+                    {% endif %}
+                    {{ message }}
                 </div>
+                <button class="message-close" onclick="this.parentElement.style.display='none'">
+                    <i class="fa-solid fa-times"></i>
+                </button>
             </div>
             {% endfor %}
         </div>
         {% endif %}
 
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <!-- Ready for Pickup -->
-            <div class="bg-white rounded-xl shadow-sm border p-4">
-                <div class="flex items-center">
-                    <div class="p-2 bg-purple-100 rounded-lg">
-                        <i class="fas fa-hand-paper text-purple-600"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-600">Ready for Pickup</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            {{ ready_count }}
-                        </p>
-                    </div>
-                </div>
+        <div class="stats-grid">
+            <div class="stat-card" onclick="filterRequests('Ready for Pickup')">
+                <i class="fa-solid fa-hand-paper stat-icon"></i>
+                <div class="stat-value">{{ ready_count }}</div>
+                <div class="stat-label">Ready for Pickup</div>
+                <div class="stat-desc">Waiting to be collected</div>
             </div>
-            
-            <!-- Approved -->
-            <div class="bg-white rounded-xl shadow-sm border p-4">
-                <div class="flex items-center">
-                    <div class="p-2 bg-green-100 rounded-lg">
-                        <i class="fas fa-check-circle text-green-600"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-600">Approved</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            {{ approved_count }}
-                        </p>
-                    </div>
-                </div>
+
+            <div class="stat-card" onclick="filterRequests('Approved')">
+                <i class="fa-solid fa-check-circle stat-icon"></i>
+                <div class="stat-value">{{ approved_count }}</div>
+                <div class="stat-label">Approved</div>
+                <div class="stat-desc">Successfully approved</div>
             </div>
-            
-            <!-- Pending -->
-            <div class="bg-white rounded-xl shadow-sm border p-4">
-                <div class="flex items-center">
-                    <div class="p-2 bg-yellow-100 rounded-lg">
-                        <i class="fas fa-clock text-yellow-600"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-600">Pending</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            {{ pending_count }}
-                        </p>
-                    </div>
-                </div>
+
+            <div class="stat-card" onclick="filterRequests('Pending Approval')">
+                <i class="fa-solid fa-clock stat-icon"></i>
+                <div class="stat-value">{{ pending_count }}</div>
+                <div class="stat-label">Pending</div>
+                <div class="stat-desc">Awaiting approval</div>
             </div>
-            
-            <!-- Received/Fulfilled -->
-            <div class="bg-white rounded-xl shadow-sm border p-4">
-                <div class="flex items-center">
-                    <div class="p-2 bg-blue-100 rounded-lg">
-                        <i class="fas fa-box-open text-blue-600"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-600">Received</p>
-                        <p class="text-xl font-bold text-gray-800">
-                            {{ received_count }}
-                        </p>
-                    </div>
-                </div>
+
+            <div class="stat-card" onclick="filterRequests('Received')">
+                <i class="fa-solid fa-box-open stat-icon"></i>
+                <div class="stat-value">{{ received_count }}</div>
+                <div class="stat-label">Received</div>
+                <div class="stat-desc">Successfully received</div>
             </div>
         </div>
 
         <!-- Ready for Pickup Section -->
-        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
-            <div class="flex justify-between items-center mb-6">
+        <div class="section-container" id="readySection">
+            <div class="section-header">
                 <div>
-                    <h2 class="text-xl font-semibold text-gray-800">Ready for Pickup</h2>
-                    <p class="text-gray-600 text-sm mt-1">Requests that are ready for you to pick up from inventory</p>
+                    <h3><i class="fa-solid fa-hand-paper"></i> Ready for Pickup</h3>
+                    <p class="section-subtitle">Requests that are ready for you to pick up from inventory</p>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <span class="text-sm text-gray-500">Total: <span class="font-bold text-purple-600" id="readyPickupCount">
-                        {{ ready_count }}
-                    </span></span>
+                <div class="section-badge">
+                    <span class="badge-count">{{ ready_count }}</span>
+                    Total
                 </div>
             </div>
             
             {% if ready_requisitions %}
                 {% for req in ready_requisitions %}
-                <div class="mb-4 p-4 border border-purple-200 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <div class="flex items-center mb-2">
-                                <h3 class="font-semibold text-gray-800">Requisition #{{ req.requisition_id }}</h3>
-                                <span class="ml-3 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                                    <i class="fas fa-hand-paper mr-1"></i>Ready for Pickup
-                                </span>
-                            </div>
-                            
-                            <div class="text-sm text-gray-600 mb-2">
-                                <i class="fas fa-calendar-alt mr-1"></i>
-                                {{ req.date_requested|date:"M d, Y" }}
-                                <span class="mx-2">•</span>
-                                <i class="fas fa-clock mr-1"></i>
-                                {{ req.date_requested|time:"H:i A" }}
-                            </div>
-                            
-                            <!-- Items List -->
-                            <div class="mt-3">
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">Items to Pick Up:</h4>
-                                <div class="space-y-2">
-                                    {% for item in req.requisition_item_set.all %}
-                                    <div class="flex justify-between items-center text-sm">
-                                        <div>
-                                            <span class="font-medium">{{ item.product.name }}</span>
-                                            <span class="text-gray-500 ml-2">
-                                                ({{ item.approved_qty|default:item.quantity }} {{ item.product.unit }})
-                                            </span>
-                                        </div>
-                                        <span class="text-xs text-gray-500">
-                                            Reserved for pickup
-                                        </span>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            
-                            {% if req.remarks %}
-                            <div class="mt-3 p-2 bg-white rounded border border-gray-200">
-                                <span class="text-xs font-medium text-gray-600">Remarks:</span>
-                                <p class="text-sm text-gray-700 mt-1">{{ req.remarks }}</p>
-                            </div>
-                            {% endif %}
+                <div class="request-card ready-card">
+                    <div class="request-header">
+                        <div class="request-title">
+                            <h4>Requisition #{{ req.requisition_id }}</h4>
+                            <span class="status-badge status-ready">
+                                <i class="fa-solid fa-hand-paper"></i> Ready for Pickup
+                            </span>
                         </div>
-                        
-                        <div class="ml-4">
-                            <form method="POST" action="{% url 'mark_as_received' req.requisition_id %}" class="confirm-receipt-form">
-                                {% csrf_token %}
-                                <button type="submit" 
-                                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center"
-                                        onclick="return confirm('Have you received all items for Requisition #{{ req.requisition_id }}?')">
-                                    <i class="fas fa-check-circle mr-2"></i>Mark as Received
-                                </button>
-                            </form>
+                        <div class="request-date">
+                            <i class="fa-solid fa-calendar-alt"></i>
+                            {{ req.date_requested|date:"M d, Y" }}
+                            <span class="date-separator">•</span>
+                            <i class="fa-solid fa-clock"></i>
+                            {{ req.date_requested|time:"H:i A" }}
                         </div>
+                    </div>
+                    
+                    <!-- Items List -->
+                    <div class="request-items">
+                        <h5><i class="fa-solid fa-boxes-stacked"></i> Items to Pick Up:</h5>
+                        <div class="items-list">
+                            {% for item in req.requisitionitem_set.all %}
+                            <div class="item-line">
+                                <span class="item-name">{{ item.product.name }}</span>
+                                <span class="item-qty">{{ item.approved_qty|default:item.quantity }} {{ item.product.unit }}</span>
+                                <span class="item-tag">Reserved</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    {% if req.remarks %}
+                    <div class="request-remarks">
+                        <h6><i class="fa-solid fa-comment"></i> Remarks:</h6>
+                        <p>{{ req.remarks }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="request-actions">
+                        <form method="POST" action="{% url 'mark_as_received' req.requisition_id %}" class="confirm-receipt-form">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success">
+                                <i class="fa-solid fa-check-circle"></i> Mark as Received
+                            </button>
+                        </form>
                     </div>
                 </div>
                 {% endfor %}
             {% else %}
-            <div class="text-center py-8">
-                <i class="fas fa-hand-paper text-4xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500 text-lg">No requests ready for pickup</p>
-                <p class="text-gray-400 text-sm mt-2">Requests marked as "Ready for Pickup" will appear here.</p>
+            <div class="empty-state">
+                <i class="fa-solid fa-hand-paper"></i>
+                <p>No requests ready for pickup</p>
+                <small>Requests marked as "Ready for Pickup" will appear here.</small>
             </div>
             {% endif %}
         </div>
 
         <!-- All Request History -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-gray-800">All Request History</h2>
-                <div class="flex space-x-2">
-                    <button id="filterAll" class="px-3 py-1 bg-blue-600 text-white rounded text-sm filter-btn active">All</button>
-                    <button id="filterPending" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm filter-btn">Pending</button>
-                    <button id="filterReady" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm filter-btn">Ready</button>
-                    <button id="filterReceived" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm filter-btn">Received</button>
+        <div class="section-container">
+            <div class="section-header">
+                <h3><i class="fa-solid fa-history"></i> All Request History</h3>
+                <div class="filter-tabs">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="Pending Approval">Pending</button>
+                    <button class="filter-btn" data-filter="Ready for Pickup">Ready</button>
+                    <button class="filter-btn" data-filter="Received">Received</button>
                 </div>
             </div>
             
             {% if requisitions %}
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+            <div class="table-responsive">
+                <table>
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Req. ID</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Requested</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th>Req. ID</th>
+                            <th>Date Requested</th>
+                            <th>Items</th>
+                            <th>Status</th>
+                            <th>Remarks</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200" id="requestsTable">
+                    <tbody id="requestsTable">
                         {% for req in requisitions %}
-                        <tr class="request-row hover:bg-gray-50 transition-colors" data-status="{{ req.status }}">
-                            <td class="px-4 py-4 text-sm font-medium text-gray-900">#{{ req.requisition_id }}</td>
-                            <td class="px-4 py-4 text-sm text-gray-500">
-                                {{ req.date_requested|date:"M d, Y" }}<br>
-                                <span class="text-xs text-gray-400">{{ req.date_requested|time:"H:i A" }}</span>
+                        <tr class="request-row" data-status="{{ req.status }}">
+                            <td class="req-id">#{{ req.requisition_id }}</td>
+                            <td>
+                                <div class="date-cell">
+                                    <div class="date">{{ req.date_requested|date:"M d, Y" }}</div>
+                                    <div class="time">{{ req.date_requested|time:"H:i A" }}</div>
+                                </div>
                             </td>
-                            <td class="px-4 py-4 text-sm text-gray-700">
-                                <div class="space-y-1">
+                            <td>
+                                <div class="products-list">
                                     {% for item in req.requisition_item_set.all %}
-                                    <div class="flex justify-between text-xs">
-                                        <span>{{ item.product.name }}</span>
-                                        <span class="text-gray-500">
+                                    <div class="product-line">
+                                        <span class="product-name">{{ item.product.name }}</span>
+                                        <span class="product-qty">
                                             {% if item.fulfilled_qty %}
                                                 {{ item.fulfilled_qty }} / 
                                             {% endif %}
@@ -243,51 +219,51 @@
                                     {% endfor %}
                                 </div>
                             </td>
-                            <td class="px-4 py-4 text-sm">
-                                <span class="px-3 py-1 rounded-full text-xs font-medium 
-                                    {% if req.status == 'Pending Approval' %}bg-yellow-100 text-yellow-800 border border-yellow-200
-                                    {% elif req.status == 'Approved' %}bg-green-100 text-green-800 border border-green-200
-                                    {% elif req.status == 'Denied' %}bg-red-100 text-red-800 border border-red-200
-                                    {% elif req.status == 'Ready for Pickup' %}bg-purple-100 text-purple-800 border border-purple-200
-                                    {% elif req.status == 'Received' %}bg-blue-100 text-blue-800 border border-blue-200
-                                    {% elif req.status == 'Partially Approved – Pending Purchase' %}bg-orange-100 text-orange-800 border border-orange-200
-                                    {% elif req.status == 'Pending Purchase' %}bg-orange-100 text-orange-800 border border-orange-200
-                                    {% elif req.status == 'Purchased' %}bg-indigo-100 text-indigo-800 border border-indigo-200
-                                    {% else %}bg-gray-100 text-gray-800 border border-gray-200{% endif %}">
-                                    <i class="fas 
-                                        {% if req.status == 'Pending Approval' %}fa-clock
-                                        {% elif req.status == 'Approved' %}fa-check-circle
-                                        {% elif req.status == 'Denied' %}fa-times-circle
-                                        {% elif req.status == 'Ready for Pickup' %}fa-hand-paper
-                                        {% elif req.status == 'Received' %}fa-box-open
-                                        {% elif req.status == 'Partially Approved – Pending Purchase' %}fa-exclamation-circle
-                                        {% elif req.status == 'Pending Purchase' %}fa-shopping-cart
-                                        {% elif req.status == 'Purchased' %}fa-truck
-                                        {% else %}fa-question-circle{% endif %} mr-1"></i>
+                            <td>
+                                <span class="status-badge status-{{ req.status|lower|cut:' '|cut:'–'|cut:'_'|cut:'-' }}">
+                                    {% if req.status == 'Pending Approval' %}
+                                    <i class="fa-solid fa-clock"></i>
+                                    {% elif req.status == 'Approved' %}
+                                    <i class="fa-solid fa-check-circle"></i>
+                                    {% elif req.status == 'Denied' %}
+                                    <i class="fa-solid fa-times-circle"></i>
+                                    {% elif req.status == 'Ready for Pickup' %}
+                                    <i class="fa-solid fa-hand-paper"></i>
+                                    {% elif req.status == 'Received' %}
+                                    <i class="fa-solid fa-box-open"></i>
+                                    {% elif req.status == 'Partially Approved – Pending Purchase' %}
+                                    <i class="fa-solid fa-exclamation-circle"></i>
+                                    {% elif req.status == 'Pending Purchase' %}
+                                    <i class="fa-solid fa-shopping-cart"></i>
+                                    {% elif req.status == 'Purchased' %}
+                                    <i class="fa-solid fa-truck"></i>
+                                    {% else %}
+                                    <i class="fa-solid fa-question-circle"></i>
+                                    {% endif %}
                                     {{ req.status }}
                                 </span>
                             </td>
-                            <td class="px-4 py-4 text-sm text-gray-600">
-                                {{ req.remarks|default:"-"|truncatewords:10 }}
+                            <td>
+                                <div class="remarks">
+                                    {{ req.remarks|default:"-"|truncatewords:10 }}
+                                </div>
                             </td>
-                            <td class="px-4 py-4 text-sm">
-                                <div class="flex space-x-2">
+                            <td>
+                                <div class="action-buttons">
                                     {% if req.status == 'Ready for Pickup' %}
                                     <form method="POST" action="{% url 'mark_as_received' req.requisition_id %}" class="confirm-receipt-form">
                                         {% csrf_token %}
-                                        <button type="submit" 
-                                                class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
-                                                onclick="return confirm('Have you received all items for Requisition #{{ req.requisition_id }}?')">
-                                            <i class="fas fa-check-circle mr-1"></i>Mark Received
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="fa-solid fa-check-circle"></i> Mark Received
                                         </button>
                                     </form>
                                     {% elif req.status == 'Received' %}
-                                    <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs">
-                                        <i class="fas fa-check mr-1"></i>Completed
+                                    <span class="status-badge status-received">
+                                        <i class="fa-solid fa-check"></i> Completed
                                     </span>
                                     {% else %}
-                                    <span class="px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                                        <i class="fas fa-clock mr-1"></i>Waiting
+                                    <span class="status-badge status-pending">
+                                        <i class="fa-solid fa-clock"></i> Waiting
                                     </span>
                                     {% endif %}
                                 </div>
@@ -298,21 +274,20 @@
                 </table>
                 
                 <!-- Pagination -->
-                <div class="flex items-center justify-between mt-6 px-4 py-3 border-t border-gray-200">
-                    <div class="text-sm text-gray-700">
-                        Showing <span class="font-medium">{{ requisitions|length }}</span> requests
+                <div class="pagination">
+                    <div class="pagination-info">
+                        Showing <span class="pagination-count">{{ requisitions|length }}</span> requests
                     </div>
                 </div>
             </div>
             {% else %}
-            <div class="text-center py-8">
-                <i class="fas fa-clipboard-list text-4xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500 text-lg">No requests yet</p>
-                <p class="text-gray-400 text-sm mt-2">Submit your first supply request from the Request Supplies page.</p>
+            <div class="empty-state">
+                <i class="fa-solid fa-clipboard-list"></i>
+                <p>No requests yet</p>
+                <small>Submit your first supply request from the Request Supplies page.</small>
             </div>
             {% endif %}
         </div>
-
     </main>
 
     <style>
@@ -325,6 +300,7 @@
             min-height: 100vh;
         }
 
+        /* Sidebar */
         .sidebar {
             width: 220px;
             background: rgba(255, 255, 255, 0.08);
@@ -340,6 +316,7 @@
             font-size: 22px;
             font-weight: 700;
             text-align: center;
+            color: #ffdd59;
         }
 
         .sidebar a {
@@ -353,128 +330,769 @@
             border-radius: 8px;
             transition: 0.3s;
             font-weight: 500;
+            position: relative;
         }
 
-        .sidebar a:hover, .sidebar a.active {
-            background: rgba(255, 255, 255, 0.15);
+        .sidebar a:hover { 
+            background: rgba(255, 255, 255, 0.15) !important; 
         }
 
-        .sidebar a i { font-size: 16px; }
+        .sidebar a.active {
+            background: rgba(0, 200, 83, 0.3);
+            border-left: 4px solid #00c853;
+        }
 
+        .sidebar a i { font-size: 18px; }
+
+        /* Main Content */
         .main-content {
             flex: 1;
             padding: 30px;
             display: flex;
             flex-direction: column;
-            color: #000000;
+            overflow-y: auto;
         }
 
+        /* Welcome Header */
+        .welcome-header {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .welcome-header h2 {
+            margin: 0 0 10px 0;
+            color: #ffdd59;
+            font-size: 28px;
+        }
+
+        .welcome-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .welcome-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            background: #00c853;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 14px;
+            width: fit-content;
+        }
+
+        /* Messages */
+        .messages-container {
+            margin-bottom: 30px;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(10px);
+        }
+
+        .message-success {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid #00c853;
+        }
+
+        .message-error {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid #ff4757;
+        }
+
+        .message-info {
+            background: rgba(0, 123, 255, 0.1);
+            border: 1px solid #007bff;
+        }
+
+        .message-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        .message-close:hover {
+            color: white;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #00c853;
+            box-shadow: 0 12px 30px rgba(0, 200, 83, 0.2);
+        }
+
+        .stat-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            color: #ffdd59;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #00c853;
+        }
+
+        .stat-label {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .stat-desc {
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
+        /* Section Containers */
+        .section-container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .section-header h3 {
+            margin: 0;
+            color: #ffdd59;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-subtitle {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .section-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .badge-count {
+            background: #00c853;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        /* Filter Tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .filter-btn.active {
+            background: rgba(0, 200, 83, 0.2);
+            color: #00c853;
+            border-color: #00c853;
+        }
+
+        .filter-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Request Cards */
+        .request-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .ready-card {
+            border-left: 4px solid #9c27b0;
+            background: rgba(156, 39, 176, 0.1);
+        }
+
+        .request-card:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .request-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .request-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .request-title h4 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .request-date {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .date-separator {
+            margin: 0 8px;
+        }
+
+        /* Request Items */
+        .request-items {
+            margin-bottom: 15px;
+        }
+
+        .request-items h5 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .item-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+        }
+
+        .item-name {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .item-qty {
+            font-size: 13px;
+            opacity: 0.7;
+        }
+
+        .item-tag {
+            font-size: 11px;
+            padding: 2px 8px;
+            background: rgba(156, 39, 176, 0.2);
+            color: #9c27b0;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        /* Request Remarks */
+        .request-remarks {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 3px solid #ffdd59;
+        }
+
+        .request-remarks h6 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .request-remarks p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* Request Actions */
+        .request-actions {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .btn-primary {
+            background: #00c853;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #03b34a;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: rgba(0, 200, 83, 0.2);
+            color: #00c853;
+            border: 1px solid rgba(0, 200, 83, 0.3);
+        }
+
+        .btn-success:hover {
+            background: rgba(0, 200, 83, 0.3);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        /* Table Container */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        /* Table Styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #ffdd59;
+            font-size: 14px;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Table Cells */
+        .req-id {
+            font-weight: 600;
+            color: #ffdd59;
+        }
+
+        .date-cell {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .date {
+            font-weight: 500;
+        }
+
+        .time {
+            font-size: 12px;
+            opacity: 0.6;
+        }
+
+        .products-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .product-line {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+
+        .product-name {
+            font-weight: 500;
+        }
+
+        .product-qty {
+            opacity: 0.7;
+        }
+
+        .remarks {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-pending {
+            background: rgba(255, 221, 89, 0.2);
+            color: #ffdd59;
+        }
+
+        .status-approved {
+            background: rgba(0, 200, 83, 0.2);
+            color: #00c853;
+        }
+
+        .status-denied {
+            background: rgba(255, 71, 87, 0.2);
+            color: #ff4757;
+        }
+
+        .status-ready {
+            background: rgba(156, 39, 176, 0.2);
+            color: #9c27b0;
+        }
+
+        .status-received {
+            background: rgba(0, 123, 255, 0.2);
+            color: #007bff;
+        }
+
+        .status-partiallyapprovedpendingpurchase {
+            background: rgba(255, 152, 0, 0.2);
+            color: #ff9800;
+        }
+
+        .status-pendingpurchase {
+            background: rgba(255, 152, 0, 0.2);
+            color: #ff9800;
+        }
+
+        .status-purchased {
+            background: rgba(103, 58, 183, 0.2);
+            color: #673ab7;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .pagination-info {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .pagination-count {
+            font-weight: 600;
+            color: #ffdd59;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .empty-state i {
+            font-size: 50px;
+            color: #ffdd59;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+
+        .empty-state small {
+            opacity: 0.7;
+            font-size: 14px;
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none;
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
             body { flex-direction: column; }
-            .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 15px; }
-            .sidebar a { margin-bottom: 0; margin-right: 10px; white-space: nowrap; }
-            .main-content { padding: 15px; }
-        }
-        
-        .hidden { display: none; }
-        
-        .filter-btn.active {
-            background-color: #3b82f6;
-            color: white;
+            .sidebar { 
+                width: 100%; 
+                flex-direction: row; 
+                overflow-x: auto; 
+                padding: 15px;
+                box-shadow: none;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
+            .sidebar a { 
+                margin-bottom: 0; 
+                margin-right: 10px; 
+                white-space: nowrap; 
+                padding: 10px;
+            }
+            .main-content { padding: 20px; }
+            .welcome-header .user-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .filter-tabs {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .filter-btn {
+                flex: 1;
+                text-align: center;
+            }
+            .request-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const filterAllBtn = document.getElementById('filterAll');
-            const filterPendingBtn = document.getElementById('filterPending');
-            const filterReadyBtn = document.getElementById('filterReady');
-            const filterReceivedBtn = document.getElementById('filterReceived');
+            const filterBtns = document.querySelectorAll('.filter-btn');
             const requestRows = document.querySelectorAll('.request-row');
             
             // Filter functionality
-            if (filterAllBtn) {
-                filterAllBtn.addEventListener('click', function() {
-                    setActiveFilter('all');
-                    filterRequests('all');
-                });
-            }
-            
-            if (filterPendingBtn) {
-                filterPendingBtn.addEventListener('click', function() {
-                    setActiveFilter('Pending Approval');
-                    filterRequests('Pending Approval');
-                });
-            }
-            
-            if (filterReadyBtn) {
-                filterReadyBtn.addEventListener('click', function() {
-                    setActiveFilter('Ready for Pickup');
-                    filterRequests('Ready for Pickup');
-                });
-            }
-            
-            if (filterReceivedBtn) {
-                filterReceivedBtn.addEventListener('click', function() {
-                    setActiveFilter('Received');
-                    filterRequests('Received');
-                });
-            }
-            
-            function setActiveFilter(filterType) {
-                [filterAllBtn, filterPendingBtn, filterReadyBtn, filterReceivedBtn].forEach(btn => {
-                    if (btn) {
-                        btn.classList.remove('active');
-                        btn.classList.add('bg-gray-200', 'text-gray-700');
-                    }
-                });
-                
-                let activeBtn;
-                if (filterType === 'all') activeBtn = filterAllBtn;
-                else if (filterType === 'Pending Approval') activeBtn = filterPendingBtn;
-                else if (filterType === 'Ready for Pickup') activeBtn = filterReadyBtn;
-                else if (filterType === 'Received') activeBtn = filterReceivedBtn;
-                
-                if (activeBtn) {
-                    activeBtn.classList.add('active', 'bg-blue-600', 'text-white');
-                    activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
-                }
-            }
-            
-            function filterRequests(status) {
-                requestRows.forEach(row => {
-                    if (status === 'all') {
-                        row.style.display = '';
-                    } else {
-                        const rowStatus = row.getAttribute('data-status');
-                        if (rowStatus === status) {
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const filter = this.getAttribute('data-filter');
+                    
+                    // Update active button
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Filter rows
+                    requestRows.forEach(row => {
+                        if (filter === 'all') {
                             row.style.display = '';
                         } else {
-                            row.style.display = 'none';
+                            const rowStatus = row.getAttribute('data-status');
+                            if (rowStatus === filter) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
+                            }
                         }
+                    });
+                    
+                    // Scroll to table
+                    const table = document.querySelector('.table-responsive');
+                    if (table) {
+                        table.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
                 });
+            });
+
+            // Confirm receipt forms
+            const confirmForms = document.querySelectorAll('.confirm-receipt-form');
+            confirmForms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    if (!confirm('Have you received all items for this requisition?')) {
+                        e.preventDefault();
+                    }
+                });
+            });
+
+            // Filter requests from stat cards
+            window.filterRequests = function(status) {
+                const filterBtn = document.querySelector(`.filter-btn[data-filter="${status}"]`);
+                if (filterBtn) {
+                    filterBtn.click();
+                }
+            };
+
+            // Real-time clock
+            function updateTime() {
+                const now = new Date();
+                const options = { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                };
+                const timeString = now.toLocaleDateString('en-US', options);
+                document.getElementById('currentTime').innerHTML = 
+                    '<i class="fa-solid fa-clock"></i> ' + timeString;
             }
             
+            updateTime();
+            setInterval(updateTime, 1000);
+
+            // Highlight current page in sidebar
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.sidebar a').forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+
             // Auto-remove messages after 5 seconds
             setTimeout(function() {
-                const messages = document.querySelectorAll('.p-4.rounded-lg');
+                const messages = document.querySelectorAll('.message');
                 messages.forEach(function(message) {
                     message.style.transition = 'opacity 0.5s';
                     message.style.opacity = '0';
-                    setTimeout(() => message.remove(), 500);
+                    setTimeout(() => {
+                        if (message.parentElement) {
+                            message.remove();
+                        }
+                    }, 500);
                 });
             }, 5000);
-            
-            // Logout function
-            window.logout = function() {
-                if (confirm('Are you sure you want to logout?')) {
-                    // Add logout logic here
-                    window.location.href = "{% url 'admin_login' %}";
-                }
-                return false;
-            }
         });
+
+        // Logout confirmation
+        function confirmLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = "{% url 'admin_login' %}?logout=true";
+                return true;
+            }
+            return false;
+        }
+
+        // Auto-refresh every 60 seconds
+        setInterval(function() {
+            location.reload();
+        }, 60000);
     </script>
 </body>
 </html>

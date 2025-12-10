@@ -405,8 +405,7 @@
     <a href="#"><i class="fa-solid fa-chart-line"></i> Report & Statistics</a>
     <a href="{% url 'requestApproval' %}"><i class="fa-solid fa-envelope"></i> Request Approval</a>
     <a href="{% url 'purchase_requests_list' %}"><i class="fa-solid fa-file-invoice-dollar"></i> Purchase Approval</a>
-    <a href="#"><i class="fa-solid fa-bell"></i> Notification</a>
-    <a href="{% url 'edit_my_account' %}"><i class="fa-solid fa-gear"></i> My Account</a>
+    <a href="{% url 'edit_my_account' %}"><i class="fa-solid fa-gear"></i> My Account</a> 
     <!-- Logout Button -->
         <a href="{% url 'admin_login' %}" class="logout-btn">
             <i class="fa-solid fa-right-from-bracket"></i> Logout
@@ -478,7 +477,6 @@
           <select id="accountRoleFilter" class="select-input">
             <option value="">All Roles</option>
             <option value="super_admin">Super Admin</option>
-            <option value="department_admin">Department Admin</option>
             <option value="inventory_admin">Inventory Admin</option>
             <option value="employee">Employee</option>
           </select>
@@ -534,8 +532,8 @@
                   <span class="badge badge-warning">Pending</span>
                 {% endif %}
               </td>
-              <td>
-                {% if account.employee %}
+              <td> 
+                {% if account.employee_record %}
                   <span class="badge badge-success">Yes</span>
                 {% else %}
                   <span class="badge badge-danger">No</span>
@@ -718,12 +716,6 @@
           </div>
 
           <div>
-            <label class="block mb-2 text-gray-300">Email Address *</label>
-            <input type="email" name="email" required 
-                   class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white">
-          </div>
-
-          <div>
             <label class="block mb-2 text-gray-300">Password *</label>
             <input type="password" name="password" required 
                    class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white">
@@ -736,19 +728,10 @@
           </div>
 
           <div>
-            <label class="block mb-2 text-gray-300">Contact Type</label>
-            <div class="flex gap-4">
-              <label class="flex items-center">
-                <input type="radio" name="contact_type" value="email" checked class="mr-2">
-                <span>Email</span>
-              </label>
-              <label class="flex items-center">
-                <input type="radio" name="contact_type" value="phone" class="mr-2">
-                <span>Phone</span>
-              </label>
-            </div>
-            <input type="text" name="contact_value" placeholder="Contact value" 
-                   class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white mt-2">
+            <label class="block mb-2 text-gray-300">Email *</label>
+            <input type="email" name="email" required 
+                  class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
+                  placeholder="employee@example.com">
           </div>
 
           <div>
@@ -757,7 +740,6 @@
               <option value="" disabled selected>Select a role</option>
               <option value="employee">Employee</option>
               <option value="inventory_admin">Inventory Clerk</option>
-              <option value="department_admin">Department Admin</option>
               <option value="super_admin">Super Admin</option>
             </select>
           </div>
@@ -765,12 +747,6 @@
           <div>
             <label class="block mb-2 text-gray-300">Position</label>
             <input type="text" name="position" 
-                   class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white">
-          </div>
-
-          <div>
-            <label class="block mb-2 text-gray-300">Department</label>
-            <input type="text" name="department" 
                    class="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white">
           </div>
 

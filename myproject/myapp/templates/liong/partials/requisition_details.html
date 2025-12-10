@@ -5,7 +5,6 @@
             <h3 class="text-xl font-bold text-gray-800">Requisition #{{ requisition.requisition_id }}</h3>
             <p class="text-sm text-gray-600">
                 Requested by: {{ requisition.employee.employee_name }} 
-                ({{ requisition.employee.department|default:"No Department" }})
             </p>
             <p class="text-sm text-gray-600">
                 Date: {{ requisition.date_requested|date:"M d, Y H:i" }}

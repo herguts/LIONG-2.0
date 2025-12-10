@@ -1,0 +1,450 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIONG | Quality Check</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+
+<inventory-sidebar></inventory-sidebar>
+
+<main class="main-content">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Quality Check</h1>
+        <div class="flex space-x-3">
+            <a href="{% url 'receive_purchase_order' receiving.po.po_id %}" 
+               class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border hover:bg-gray-50">
+                <i class="fas fa-edit mr-1"></i> Edit Receiving
+            </a>
+            <a href="{% url 'purchase_orders_list' %}" 
+               class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border hover:bg-gray-50">
+                <i class="fas fa-arrow-left mr-1"></i> Back to Purchase Orders
+            </a>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="mb-6">
+        {% for message in messages %}
+        <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800 border border-yellow-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                    {{ message }}
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Receiving Information -->
+    <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800">Receiving #{{ receiving.receiving_number }}</h2>
+                <div class="flex items-center space-x-4 mt-2">
+                    <span class="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        PO: {{ receiving.po.po_number }}
+                    </span>
+                    <span class="text-sm text-gray-600">Supplier: {{ receiving.po.supplier.name }}</span>
+                    <span class="text-sm text-gray-600">Received: {{ receiving.receive_date|date:"M d, Y" }}</span>
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="text-lg font-bold text-gray-800">Status: {{ receiving.overall_status|title }}</p>
+                <p class="text-sm text-gray-600">Received by: {{ receiving.received_by.name }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="mb-8">
+        <div class="flex items-center justify-center mb-4">
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
+                    <i class="fas fa-check"></i>
+                </div>
+                <div class="ml-2 font-medium text-green-600">Initial Receiving</div>
+            </div>
+            <div class="w-24 h-1 bg-green-600 mx-4"></div>
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                    2
+                </div>
+                <div class="ml-2 font-medium text-blue-600">Quality Check</div>
+            </div>
+        </div>
+        <p class="text-center text-sm text-gray-600">Step 2: Inspect received items and mark any rejections</p>
+    </div>
+
+    <!-- Quality Check Form -->
+    <form method="POST" class="bg-white rounded-xl shadow-md p-6">
+        {% csrf_token %}
+        
+        <!-- Rejection Disposition -->
+        <div class="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <h3 class="font-semibold text-yellow-800 mb-3">
+                <i class="fas fa-exclamation-triangle mr-2"></i>Rejection Handling Preference
+            </h3>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                How should rejected items be handled?
+            </label>
+            <select name="rejection_disposition" class="w-full md:w-64 px-3 py-2 border border-yellow-300 rounded-lg bg-white">
+                <option value="return">Return to Supplier</option>
+                <option value="keep_as_rejected">Keep as Rejected Stock</option>
+                <option value="destroy">Destroy/Dispose</option>
+                <option value="replace">Request Replacement</option>
+            </select>
+            <p class="text-xs text-gray-600 mt-2">
+                This setting applies to all rejected items. You can change individual dispositions later if needed.
+            </p>
+        </div>
+
+        <!-- Items Quality Check -->
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                <i class="fas fa-clipboard-check mr-2"></i>Quality Inspection
+            </h3>
+            
+            <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div class="flex items-center">
+                    <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+                    <p class="text-sm text-blue-700">
+                        For rejected items, provide detailed reason (damage, wrong item, expired, etc.)
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Rejection Summary (dynamic) -->
+            <div id="rejection-summary" style="display: none;" class="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                <div class="flex items-center mb-2">
+                    <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>
+                    <h4 class="font-bold text-red-800" id="summary-title">Rejection Summary</h4>
+                </div>
+                <div id="summary-content"></div>
+            </div>
+            
+            <div class="space-y-6">
+                {% for received_item in receiving.receiveditem_set.all %}
+                <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors" id="item_{{ received_item.received_item_id }}">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h4 class="font-bold text-gray-800">{{ received_item.po_item.product.name }}</h4>
+                            <p class="text-sm text-gray-600">
+                                Received: {{ received_item.quantity_received }} {{ received_item.po_item.product.unit }}
+                            </p>
+                            <p class="text-sm text-gray-600">
+                                Unit Price: ₱{{ received_item.po_item.unit_price|floatformat:2 }}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            {% with total_value=received_item.quantity_received|floatformat:2|add:"0" %}
+                            {% with unit_price=received_item.po_item.unit_price %}
+                            <p class="font-bold text-lg">₱{{ total_value }}</p>
+                            {% endwith %}
+                            {% endwith %}
+                            <p class="text-sm text-gray-600">Total Value</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Quantity Accepted *
+                            </label>
+                            <div class="flex items-center">
+                                <input type="number" 
+                                       name="accepted_qty_{{ received_item.received_item_id }}"
+                                       id="accepted_qty_{{ received_item.received_item_id }}"
+                                       step="1"
+                                       min="0"
+                                       max="{{ received_item.quantity_received }}"
+                                       value="{{ received_item.quantity_received }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       onchange="updateRejectionFields('{{ received_item.received_item_id }}')"
+                                       required>
+                                <span class="ml-2 text-gray-600">{{ received_item.po_item.product.unit }}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Max: {{ received_item.quantity_received }}</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Rejection Reason
+                            </label>
+                            <select name="rejection_reason_{{ received_item.received_item_id }}"
+                                    id="rejection_reason_{{ received_item.received_item_id }}"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    disabled
+                                    onchange="updateRejectionSummary()">
+                                <option value="">-- Select Reason --</option>
+                                <option value="damaged">Damaged Goods</option>
+                                <option value="wrong_item">Wrong Item</option>
+                                <option value="expired">Expired Product</option>
+                                <option value="poor_quality">Poor Quality</option>
+                                <option value="shortage">Short Quantity</option>
+                                <option value="wrong_spec">Wrong Specifications</option>
+                                <option value="late_delivery">Late Delivery</option>
+                                <option value="packaging_issue">Packaging Issue</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="lg:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Rejection Details
+                            </label>
+                            <input type="text" 
+                                   name="rejection_details_{{ received_item.received_item_id }}"
+                                   id="rejection_details_{{ received_item.received_item_id }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                   placeholder="Specific details (damage type, location, photos taken, etc.)"
+                                   disabled
+                                   onchange="updateRejectionSummary()">
+                        </div>
+                    </div>
+                    
+                    <!-- Dynamic Rejection Info -->
+                    <div id="rejection_info_{{ received_item.received_item_id }}" style="display: none;" class="mt-4 p-3 bg-red-50 rounded border border-red-200">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle text-red-600 mr-2"></i>
+                            <p class="text-sm text-red-700">
+                                <span id="rejected_qty_{{ received_item.received_item_id }}">0</span> units will be rejected
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Quality Check Notes -->
+        <div class="mb-8">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                <i class="fas fa-sticky-note mr-2"></i>Quality Check Notes
+            </label>
+            <textarea name="quality_notes" rows="4"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Overall observations, testing results, supplier performance..."></textarea>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex justify-end space-x-3">
+            <a href="{% url 'purchase_orders_list' %}"
+               class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                Cancel
+            </a>
+            <button type="submit" name="action" value="complete_qc"
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+                <i class="fas fa-clipboard-check mr-1"></i> Complete Quality Check
+            </button>
+        </div>
+    </form>
+</main>
+
+<script src="{% static 'js/inventory_dashboard.js' %}"></script>
+
+<script>
+function updateRejectionFields(itemId) {
+    const acceptedInput = document.getElementById(`accepted_qty_${itemId}`);
+    const reasonSelect = document.getElementById(`rejection_reason_${itemId}`);
+    const detailsInput = document.getElementById(`rejection_details_${itemId}`);
+    const itemElement = document.getElementById(`item_${itemId}`);
+    const rejectionInfo = document.getElementById(`rejection_info_${itemId}`);
+    const rejectedQtySpan = document.getElementById(`rejected_qty_${itemId}`);
+    
+    const maxQty = parseFloat(acceptedInput.max) || 0;
+    const acceptedQty = parseFloat(acceptedInput.value) || 0;
+    const rejectedQty = maxQty - acceptedQty;
+    
+    if (rejectedQty > 0) {
+        // There are rejected items
+        reasonSelect.disabled = false;
+        reasonSelect.required = true;
+        detailsInput.disabled = false;
+        detailsInput.required = true;
+        
+        // Highlight
+        reasonSelect.classList.add('border-red-300', 'bg-red-50');
+        detailsInput.classList.add('border-red-300', 'bg-red-50');
+        itemElement.classList.add('border-red-300');
+        
+        // Show rejection info
+        rejectionInfo.style.display = 'block';
+        rejectedQtySpan.textContent = rejectedQty.toFixed(2);
+        
+        // Auto-select "damaged" if all rejected
+        if (acceptedQty === 0 && !reasonSelect.value) {
+            reasonSelect.value = 'damaged';
+        }
+        
+    } else {
+        // All items accepted
+        reasonSelect.disabled = true;
+        reasonSelect.required = false;
+        reasonSelect.value = '';
+        detailsInput.disabled = true;
+        detailsInput.required = false;
+        detailsInput.value = '';
+        
+        // Remove highlight
+        reasonSelect.classList.remove('border-red-300', 'bg-red-50');
+        detailsInput.classList.remove('border-red-300', 'bg-red-50');
+        itemElement.classList.remove('border-red-300');
+        
+        // Hide rejection info
+        rejectionInfo.style.display = 'none';
+    }
+    
+    updateRejectionSummary();
+}
+
+function updateRejectionSummary() {
+    let totalRejected = 0;
+    let totalValueRejected = 0;
+    let rejectedItems = [];
+    
+    // Get all received items
+    document.querySelectorAll('[id^="accepted_qty_"]').forEach(input => {
+        const itemId = input.id.replace('accepted_qty_', '');
+        const maxQty = parseFloat(input.max) || 0;
+        const acceptedQty = parseFloat(input.value) || 0;
+        const rejectedQty = maxQty - acceptedQty;
+        
+        if (rejectedQty > 0) {
+            totalRejected += rejectedQty;
+            
+            const itemElement = document.getElementById(`item_${itemId}`);
+            const productName = itemElement.querySelector('h4').textContent;
+            
+            // Get unit price from the text
+            const unitPriceText = itemElement.querySelector('p.text-sm.text-gray-600:nth-of-type(2)').textContent;
+            const unitPriceMatch = unitPriceText.match(/₱([\d,.]+)/);
+            const unitPrice = unitPriceMatch ? parseFloat(unitPriceMatch[1].replace(/,/g, '')) : 0;
+            
+            totalValueRejected += rejectedQty * unitPrice;
+            
+            const reason = document.getElementById(`rejection_reason_${itemId}`).value;
+            const reasonText = document.getElementById(`rejection_reason_${itemId}`).selectedOptions[0]?.text || reason;
+            
+            rejectedItems.push({
+                name: productName,
+                quantity: rejectedQty,
+                unit: 'units',
+                value: rejectedQty * unitPrice,
+                reason: reasonText
+            });
+        }
+    });
+    
+    const summaryDiv = document.getElementById('rejection-summary');
+    const dispositionSelect = document.querySelector('select[name="rejection_disposition"]');
+    const dispositionText = dispositionSelect.selectedOptions[0]?.text || 'Return to Supplier';
+    
+    if (totalRejected > 0) {
+        document.getElementById('summary-title').textContent = 
+            `Rejection Summary: ${totalRejected.toFixed(2)} units (₱${totalValueRejected.toFixed(2)})`;
+        
+        document.getElementById('summary-content').innerHTML = `
+            <div class="mb-3">
+                <p class="text-sm text-red-700 mb-2">Rejected items will be: <span class="font-bold">${dispositionText}</span></p>
+                <div class="bg-white p-3 rounded border">
+                    ${rejectedItems.map(item => `
+                        <div class="flex justify-between items-center py-2 border-b last:border-0">
+                            <div>
+                                <p class="font-medium">${item.name}</p>
+                                <p class="text-xs text-gray-600">${item.reason}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-red-600 font-medium">${item.quantity.toFixed(2)} units</p>
+                                <p class="text-xs text-gray-600">₱${item.value.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        summaryDiv.style.display = 'block';
+    } else {
+        summaryDiv.style.display = 'none';
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize all item fields
+    document.querySelectorAll('[id^="accepted_qty_"]').forEach(input => {
+        const itemId = input.id.replace('accepted_qty_', '');
+        updateRejectionFields(itemId);
+    });
+    
+    // Update summary when disposition changes
+    document.querySelector('select[name="rejection_disposition"]').addEventListener('change', updateRejectionSummary);
+    
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(event) {
+        let hasRejections = false;
+        let hasMissingDetails = false;
+        let errorMessages = [];
+        
+        document.querySelectorAll('[id^="accepted_qty_"]').forEach(input => {
+            const itemId = input.id.replace('accepted_qty_', '');
+            const maxQty = parseFloat(input.max) || 0;
+            const acceptedQty = parseFloat(input.value) || 0;
+            
+            if (acceptedQty < maxQty) {
+                hasRejections = true;
+                
+                const reason = document.getElementById(`rejection_reason_${itemId}`).value;
+                const details = document.getElementById(`rejection_details_${itemId}`).value;
+                
+                if (!reason || !details.trim()) {
+                    hasMissingDetails = true;
+                    const productName = document.getElementById(`item_${itemId}`).querySelector('h4').textContent;
+                    errorMessages.push(`${productName}: Missing rejection details`);
+                }
+            }
+        });
+        
+        if (hasRejections && hasMissingDetails) {
+            event.preventDefault();
+            
+            alert(`Please provide rejection reason and details for all rejected items:\n\n${errorMessages.join('\n')}`);
+            
+            // Scroll to first error
+            const firstError = document.querySelector('[id^="rejection_reason_"]:invalid');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstError.focus();
+            }
+        }
+    });
+});
+</script>
+
+<style>
+.main-content {
+    margin-left: 250px;
+    padding: 30px;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+        padding: 15px;
+    }
+}
+</style>
+</body>
+</html>

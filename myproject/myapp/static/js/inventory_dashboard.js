@@ -158,5 +158,33 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Add Supplier Modal Functions
+function openAddSupplierModal() {
+    document.getElementById('addSupplierModal').classList.remove('hidden');
+}
+
+function closeAddSupplierModal() {
+    document.getElementById('addSupplierModal').classList.add('hidden');
+}
+
+// Close modal when clicking outside
+document.addEventListener('DOMContentLoaded', function() {
+    const addModal = document.getElementById('addSupplierModal');
+    
+    if (addModal) {
+        addModal.addEventListener('click', function(event) {
+            if (event.target === addModal) {
+                closeAddSupplierModal();
+            }
+        });
+    }
+    
+    // Close on Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeAddSupplierModal();
+        }
+    });
+});
 
 customElements.define('inventory-sidebar', InventorySidebar);

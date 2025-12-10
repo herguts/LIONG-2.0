@@ -459,7 +459,6 @@
             <i class="fa-solid fa-envelope"></i> Request Approval
         </a>
         <a href="{% url 'purchase_requests_list' %}"><i class="fa-solid fa-file-invoice-dollar"></i> Purchase Approval</a>
-        <a href="#"><i class="fa-solid fa-bell"></i> Notification</a>
         <a href="{% url 'edit_my_account' %}"><i class="fa-solid fa-gear"></i> My Account</a>
         <!-- Logout Button -->
         <a href="{% url 'admin_login' %}" class="logout-btn">
@@ -556,7 +555,6 @@
                         <td class="font-medium">#{{ req.requisition_id }}</td>
                         <td>
                             <div class="font-medium">{{ req.employee.employee_name }}</div>
-                            <div class="text-xs text-gray-400">{{ req.employee.department|default:"No Department" }}</div>
                         </td>
                         <td>
                             {{ req.date_requested|date:"M d, Y" }}<br>

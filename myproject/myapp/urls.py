@@ -83,4 +83,20 @@ urlpatterns = [
 
     path('employee/request-history/', views.request_history, name='request_history'),
     path('employee/mark-received/<int:requisition_id>/', views.mark_as_received, name='mark_as_received'),
+
+
+    # Add these to your existing urlpatterns in urls.py
+    path('reports/', views.reports_main, name='reports_main'),
+    path('reports/<str:report_type>/', views.get_report_data, name='get_report_data'),
+    path('reports/export/<str:report_type>/', views.export_report_csv, name='export_report_csv'),
+
+    # Purchase Order URLs
+    path('purchase-orders/', views.purchase_orders_list, name='purchase_orders_list'),
+    path('purchase-orders/<int:po_id>/', views.purchase_order_detail, name='purchase_order_detail'),
+    path('purchase-orders/receive/<int:po_id>/', views.receive_purchase_order, name='receive_purchase_order'),
+    path('quality-check/<int:receiving_id>/', views.quality_check_receiving, name='quality_check_receiving'),
+    
+    # API endpoints for receiving
+    path('api/receiving/<int:receiving_id>/', views.get_receiving_details, name='get_receiving_details'),
+    path('api/rejected-item/<int:rejected_id>/update-disposition/', views.update_rejection_disposition, name='update_rejection_disposition'),
    ]

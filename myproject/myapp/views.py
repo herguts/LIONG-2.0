@@ -1,5 +1,5 @@
 from django.shortcuts import redirect, render
-from myapp.models import Admin, Employee, Requisition, Requisition_Item, Products, InventoryBalance,StockIn, StockOut, RequisitionStatusHistory, PurchaseRequest, PurchaseRequestItem, Supplier, PurchaseOrder, PurchaseOrderItem, PurchaseOrderHistory, PurchaseReceiving, ReceivedItem, models
+from myapp.models import Admin, Employee, Requisition, Requisition_Item, Products, InventoryBalance,StockIn, StockOut, RequisitionStatusHistory, PurchaseRequest, PurchaseRequestItem, Supplier, PurchaseOrder, PurchaseOrderItem, PurchaseOrderHistory, PurchaseReceiving, ReceivedItem, QualityCheck, models, RejectedItem, RejectedStock, ReturnRequest, DisposalRecord, ReplacementRequest
 from django.contrib import messages
 from django.utils.timezone import now
 from django.utils.crypto import get_random_string
@@ -13,6 +13,11 @@ from django.http import JsonResponse
 from django.db import IntegrityError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.conf import settings
+
 
 
 # Create your views here.
@@ -344,73 +349,94 @@ def manage_accounts(request):
 
 
 def add_employee_account(request):
-    """Create both account and employee record at once"""
-    if not request.session.get('acc_id'):
-        messages.error(request, 'Please login first')
+    """Add new employee with account"""
+    if 'acc_id' not in request.session:
         return redirect('admin_login')
     
-    if request.session.get('admin_role') != 'super_admin':
-        messages.error(request, 'Access denied')
-        return redirect('admin_login')
+    current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    
+    if current_admin.role != 'super_admin':
+        messages.error(request, "Only super admin can add employees.")
+        return redirect('manage_accounts')
     
     if request.method == 'POST':
         try:
-            with transaction.atomic():
-                # Get form data
-                employee_name = request.POST.get('employee_name')
-                email = request.POST.get('email')
-                password = request.POST.get('password')
-                confirm_password = request.POST.get('confirm_password')
-                role = request.POST.get('role')
-                contact_type = request.POST.get('contact_type', 'email')
-                contact_value = request.POST.get('contact_value', email)
-                position = request.POST.get('position', '')
-                department = request.POST.get('department', '')
-                date_joined = request.POST.get('date_joined')
-                
-                # Validation
-                if not all([employee_name, email, password, confirm_password, role, date_joined]):
-                    messages.error(request, 'All required fields must be filled')
-                    return redirect('manage_accounts')
-                
-                if password != confirm_password:
-                    messages.error(request, 'Passwords do not match')
-                    return redirect('manage_accounts')
-                
-                if Admin.objects.filter(email=email).exists():
-                    messages.error(request, 'Email already registered')
-                    return redirect('manage_accounts')
-                
-                # Create account
-                account = Admin.objects.create(
-                    name=employee_name,
-                    email=email,
-                    password=password,  # Note: Use proper hashing in production
-                    role=role,
-                    department=department,
-                    is_approved=True,  # Auto-approve when created by admin
-                    is_active=True
-                )
-                
-                # Create employee record
-                Employee.objects.create(
-                    admin=account,
-                    employee_name=employee_name,
-                    contact_type=contact_type,
-                    contact_value=contact_value,
-                    position=position,
-                    department=department,
-                    date_joined=date_joined,
-                    status='active'
-                )
-                
-                messages.success(request, f'Employee account created successfully for {employee_name}')
-                return redirect('manage_accounts') + '?tab=employees'
-                
-        except IntegrityError as e:
-            messages.error(request, f'Error creating account: {str(e)}')
+            employee_name = request.POST.get('employee_name')
+            email = request.POST.get('email')
+            password = request.POST.get('password')
+            confirm_password = request.POST.get('confirm_password')
+            contact_type = request.POST.get('contact_type', 'email')
+            contact_value = request.POST.get('contact_value', '')
+            role = request.POST.get('role', 'employee')
+            position = request.POST.get('position', '')
+            date_joined = request.POST.get('date_joined')
+            
+            # Validate required fields
+            if not all([employee_name, email, password, confirm_password, date_joined]):
+                messages.error(request, "Please fill in all required fields.")
+                return redirect('manage_accounts')
+            
+            # Validate passwords match
+            if password != confirm_password:
+                messages.error(request, "Passwords do not match.")
+                return redirect('manage_accounts')
+            
+            # Validate password length
+            if len(password) < 6:
+                messages.error(request, "Password must be at least 6 characters.")
+                return redirect('manage_accounts')
+            
+            # Check if account already exists
+            if Admin.objects.filter(email=email).exists():
+                messages.error(request, "An account with this email already exists.")
+                return redirect('manage_accounts')
+            
+            # Create the admin account first
+            admin = Admin.objects.create(
+                name=employee_name,
+                email=email,
+                password=password,  # In production, hash this password
+                role=role,
+                department=request.POST.get('department', '')
+            )
+            
+            # Create the employee record
+            employee = Employee.objects.create(
+                admin=admin,
+                employee_name=employee_name,
+                contact_type=contact_type,
+                contact_value=contact_value if contact_value else email,
+                position=position,
+                date_joined=date_joined,
+                status='active'
+            )
+            
+            # Check if this is from pending accounts
+            from_existing = request.POST.get('from_existing_account')
+            existing_acc_id = request.POST.get('existing_acc_id')
+            
+            if from_existing and existing_acc_id:
+                # If creating from pending account, delete the old account
+                try:
+                    old_account = Admin.objects.get(acc_id=existing_acc_id)
+                    old_account.delete()
+                    messages.success(request, f"Account converted to employee: {employee_name}")
+                except Admin.DoesNotExist:
+                    pass
+            
+            messages.success(request, f"Employee account created successfully for {employee_name}")
+            
+            # Set session for prefill if needed
+            request.session['prefill_account_id'] = None
+            
+            # FIXED LINE: Just return redirect, don't concatenate with string
+            return redirect('manage_accounts')
+            
+        except Exception as e:
+            messages.error(request, f"Error creating employee account: {str(e)}")
             return redirect('manage_accounts')
     
+    # If GET request, redirect to manage accounts page
     return redirect('manage_accounts')
 
 
@@ -1404,9 +1430,10 @@ def stock_in_view(request):
             }
         )
 
-        balance.quantity_unit = (balance.quantity_unit or 0) + float(quantity)
-        balance.quantity_meters = (balance.quantity_meters or 0) + float(quantity_meters)
-        balance.quantity_klg = (balance.quantity_klg or 0) + float(quantity_klg)
+        balance.quantity_unit = (balance.quantity_unit or Decimal('0')) + Decimal(str(quantity))
+        balance.quantity_meters = (balance.quantity_meters or Decimal('0')) + Decimal(str(quantity_meters))
+        balance.quantity_klg = (balance.quantity_klg or Decimal('0')) + Decimal(str(quantity_klg))
+
         balance.last_updated = timezone.now()
         balance.save()
 
@@ -1642,7 +1669,7 @@ def create_purchase_request(request, requisition_id):
             requisition=requisition,
             requested_by=current_admin,
             payment_method=payment_method,
-            remarks=f"Auto-generated from shortages in Requisition #{requisition.requisition_id}\n{remarks}"
+            remarks=f"{remarks}"
         )
 
         # Create purchase request items with prices
@@ -1821,7 +1848,10 @@ def create_purchase_order(request, request_id):
     if request.method == 'POST':
         supplier_id = request.POST.get('supplier')
         delivery_date = request.POST.get('delivery_date')
-        payment_terms = request.POST.get('payment_terms', 'Net 30')
+        
+        # Get payment method from form
+        payment_method = request.POST.get('payment_method', 'cash_on_delivery')
+        custom_payment = request.POST.get('custom_payment', '')
         notes = request.POST.get('notes', '')
         
         if not supplier_id:
@@ -1830,39 +1860,151 @@ def create_purchase_order(request, request_id):
 
         supplier = get_object_or_404(Supplier, pk=supplier_id)
         
-        # Create purchase order
+        # Determine payment terms based on selection
+        payment_terms = "Net 30"  # Default
+        
+        if payment_method == 'cash_on_delivery':
+            payment_terms = "Cash on Delivery"
+        elif payment_method == 'bank_transfer':
+            payment_terms = "Bank Transfer"
+        elif payment_method == 'gcash':
+            payment_terms = "GCash"
+        elif payment_method == 'check':
+            payment_terms = "Check Payment"
+        elif payment_method == 'credit':
+            payment_terms = "Credit - Net 30 Days"
+        elif custom_payment:
+            payment_terms = custom_payment
+        
+        # Create purchase order - model will auto-generate po_number in save()
         purchase_order = PurchaseOrder.objects.create(
             request=purchase_request,
             supplier=supplier,
             created_by=current_admin,
-            delivery_date=delivery_date,
+            delivery_date=delivery_date if delivery_date else None,
             payment_terms=payment_terms,
-            notes=notes
+            notes=notes,
+            status='draft'  # Initial status for PO
         )
         
         # Get items from purchase request
         request_items = PurchaseRequestItem.objects.filter(request=purchase_request)
         
+        # Calculate total for the PO
+        total_amount = 0
+        
         for req_item in request_items:
-            unit_price = request.POST.get(f'unit_price_{req_item.item_id}', 0)
+            # Calculate unit price from estimated total
+            if req_item.total_estimated_price and req_item.quantity_to_purchase > 0:
+                unit_price = req_item.total_estimated_price / req_item.quantity_to_purchase
+            else:
+                # Try to get from product, or use 0
+                try:
+                    unit_price = req_item.product.price
+                except:
+                    unit_price = 0
             
             # Create PO item
-            PurchaseOrderItem.objects.create(
+            po_item = PurchaseOrderItem.objects.create(
                 po=purchase_order,
                 product=req_item.product,
                 quantity=req_item.quantity_to_purchase,
                 unit_price=unit_price
             )
             
-            # Update requisition_item purchase_qty
-            if req_item.requisition_item:
+            # Add to total
+            total_amount += po_item.total_price
+            
+            # Update requisition_item purchase_qty if needed
+            if hasattr(req_item, 'requisition_item') and req_item.requisition_item:
                 req_item.requisition_item.purchase_qty = req_item.quantity_to_purchase
                 req_item.requisition_item.save()
+        
+        # Update purchase order total amount
+        purchase_order.total_amount = total_amount
+        purchase_order.save()
+        
+        # Also update the requisition status if it exists
+        if purchase_request.requisition:
+            purchase_request.requisition.status = 'Pending Purchase'
+            purchase_request.requisition.save()
 
-        messages.success(request, f"Purchase order {purchase_order.po_number} created successfully.")
+        # ====================================================
+        # AUTOMATICALLY SEND EMAIL TO SUPPLIER
+        # ====================================================
+        if supplier.email:
+            try:
+                # Get all items for the PO
+                items = purchase_order.purchaseorderitem_set.all()
+                
+                # Prepare email context
+                context = {
+                    'company_name': settings.COMPANY_NAME,
+                    'po': purchase_order,
+                    'supplier': supplier,
+                    'items': items,
+                    'sent_by': current_admin,
+                }
+                
+                # Render HTML email
+                html_message = render_to_string('liong/emails/purchase_order_email.html', context)
+                plain_message = strip_tags(html_message)
+                
+                # Send email to supplier
+                send_mail(
+                    subject=f"Purchase Order #{purchase_order.po_number} - {settings.COMPANY_NAME}",
+                    message=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[supplier.email],
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+                
+                # Also send a copy to the inventory admin if they have email
+                if current_admin.email:
+                    try:
+                        send_mail(
+                            subject=f"PO #{purchase_order.po_number} Copy - Sent to {supplier.name}",
+                            message=f"Purchase Order #{purchase_order.po_number} has been sent to {supplier.name} ({supplier.email})",
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[current_admin.email],
+                            fail_silently=True,
+                        )
+                    except:
+                        pass
+                
+                # Update PO to track email was sent
+                purchase_order.email_sent = True
+                purchase_order.email_sent_date = timezone.now()
+                purchase_order.email_sent_to = supplier.email
+                purchase_order.save()
+                
+                # Show success message with email confirmation
+                messages.success(
+                    request, 
+                    f"✅ Purchase Order #{purchase_order.po_number} created successfully and sent to {supplier.name}!"
+                )
+                
+            except Exception as e:
+                # If email fails, still show success for PO creation but warn about email
+                purchase_order.save()
+                messages.warning(
+                    request, 
+                    f"✅ Purchase Order #{purchase_order.po_number} created successfully, but email could not be sent to supplier. Error: {str(e)[:100]}..."
+                )
+        else:
+            # Supplier doesn't have email
+            messages.success(
+                request, 
+                f"✅ Purchase Order #{purchase_order.po_number} created successfully! Note: Supplier does not have an email address."
+            )
+
         return redirect('purchase_orders_list')
     
+    # If GET request, redirect to the list page
     return redirect('approved_purchase_requests')
+
+
 
 
 # ============================================
@@ -1925,12 +2067,173 @@ def send_purchase_order(request, po_id):
 # ============================================
 # RECEIVING & QUALITY CHECK
 # ============================================
-def receive_purchase_order(request, po_id):
-    """Receive goods from supplier with quality check"""
+
+def quality_check_receiving(request, receiving_id):
+    """Step 2: Quality check and rejection handling"""
     if 'acc_id' not in request.session:
         return redirect('admin_login')
 
-    current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    try:
+        current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    except Admin.DoesNotExist:
+        messages.error(request, "Admin not found.")
+        return redirect('admin_login')
+    
+    if current_admin.role not in ['inventory_admin', 'super_admin']:
+        messages.error(request, "Only inventory can perform quality checks.")
+        return redirect('purchase_orders_list')
+
+    receiving = get_object_or_404(PurchaseReceiving.objects.select_related(
+        'po', 'po__supplier'
+    ).prefetch_related(
+        'receiveditem_set__po_item__product'
+    ), receiving_id=receiving_id)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        disposition = request.POST.get('rejection_disposition', 'return')
+        
+        try:
+            with transaction.atomic():
+                # Create quality check record
+                quality_check = QualityCheck.objects.create(
+                    receiving=receiving,
+                    checker=current_admin,
+                    overall_status='pending',
+                    notes=request.POST.get('quality_notes', ''),
+                    rejection_disposition=disposition
+                )
+                
+                has_rejections = False
+                all_accepted = True
+                total_accepted = Decimal('0')
+                total_rejected = Decimal('0')
+                
+                # Process quality check for each item
+                for received_item in receiving.receiveditem_set.all():
+                    accepted_qty_str = request.POST.get(f'accepted_qty_{received_item.received_item_id}', '0')
+                    accepted_qty = Decimal(accepted_qty_str) if accepted_qty_str else Decimal('0')
+                    
+                    if accepted_qty > received_item.quantity_received:
+                        accepted_qty = received_item.quantity_received
+                    
+                    rejected_qty = received_item.quantity_received - accepted_qty
+                    
+                    # Update received item
+                    received_item.quantity_accepted = accepted_qty
+                    received_item.quantity_rejected = rejected_qty
+                    received_item.quality_checker = current_admin
+                    received_item.quality_check_date = timezone.now()
+                    
+                    if rejected_qty > 0:
+                        received_item.rejection_reason = request.POST.get(f'rejection_reason_{received_item.received_item_id}', '')
+                        received_item.rejection_details = request.POST.get(f'rejection_details_{received_item.received_item_id}', '')
+                        has_rejections = True
+                        all_accepted = False
+                        total_rejected += rejected_qty
+                    
+                    total_accepted += accepted_qty
+                    received_item.save()
+                    
+                    # Create rejected item record if there are rejections
+                    if rejected_qty > 0:
+                        RejectedItem.objects.create(
+                            receiving=receiving,
+                            po_item=received_item.po_item,
+                            quantity=rejected_qty,
+                            reason=received_item.rejection_reason or 'other',
+                            details=received_item.rejection_details or '',
+                            disposition=disposition,
+                            is_resolved=False
+                        )
+                    
+                    # Update PO item quality status
+                    po_item = received_item.po_item
+                    if rejected_qty > 0:
+                        if accepted_qty > 0:
+                            po_item.quality_status = 'partial'
+                        else:
+                            po_item.quality_status = 'failed'
+                    else:
+                        po_item.quality_status = 'passed'
+                    po_item.save()
+                
+                # Update quality check overall status
+                if has_rejections:
+                    quality_check.overall_status = 'rejected'
+                    # FIXED: Use 'complete' instead of 'with_rejections' since it's not in choices
+                    receiving.overall_status = 'complete'
+                else:
+                    quality_check.overall_status = 'accepted'
+                    receiving.overall_status = 'complete'
+                
+                quality_check.save()
+                
+                # Check if PO is fully received
+                po_fully_received = all(
+                    item.received_quantity >= item.quantity 
+                    for item in receiving.po.purchaseorderitem_set.all()
+                )
+                
+                # Update PO status
+                if po_fully_received:
+                    if has_rejections:
+                        receiving.po.status = 'partially_received'
+                    else:
+                        receiving.po.status = 'received'
+                        receiving.po.completed_date = timezone.now()
+                else:
+                    receiving.po.status = 'partially_received'
+                
+                receiving.save()
+                receiving.po.save()
+                
+                # Stock in accepted items
+                if total_accepted > 0:
+                    stock_in_accepted_items(receiving, current_admin)
+                
+                # Handle rejected items based on disposition
+                if has_rejections:
+                    handle_rejected_items_disposition(receiving, disposition, current_admin)
+                
+                # Create history
+                PurchaseOrderHistory.objects.create(
+                    po=receiving.po,
+                    old_status='partially_received',
+                    new_status=receiving.po.status,
+                    changed_by=current_admin,
+                    notes=f"Quality check completed. Accepted: {total_accepted} units, Rejected: {total_rejected} units. Receiving #{receiving.receiving_number}."
+                )
+            
+            if has_rejections:
+                messages.warning(request, f"Quality check completed with rejections. {total_rejected} units were rejected.")
+            else:
+                messages.success(request, f"Quality check completed. All {total_accepted} units accepted.")
+            
+            return redirect('purchase_orders_list')
+            
+        except Exception as e:
+            messages.error(request, f"Error during quality check: {str(e)}")
+            import traceback
+            traceback.print_exc()  # This will print the full traceback to console
+            return redirect('quality_check_receiving', receiving_id=receiving_id)
+
+    return render(request, 'liong/quality_check_receiving.html', {
+        'receiving': receiving,
+        'current_admin': current_admin
+    })
+
+
+def receive_purchase_order(request, po_id):
+    """Step 1: Initial receiving of goods"""
+    if 'acc_id' not in request.session:
+        return redirect('admin_login')
+
+    try:
+        current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    except Admin.DoesNotExist:
+        messages.error(request, "Admin not found.")
+        return redirect('admin_login')
     
     if current_admin.role not in ['inventory_admin', 'super_admin']:
         messages.error(request, "Only inventory can receive goods.")
@@ -1940,86 +2243,88 @@ def receive_purchase_order(request, po_id):
         'supplier'
     ).prefetch_related(
         'purchaseorderitem_set__product'
-    ), pk=po_id)
+    ), po_id=po_id)
 
     if request.method == 'POST':
-        # Create receiving record
-        receiving = PurchaseReceiving.objects.create(
-            po=purchase_order,
-            received_by=current_admin,
-            invoice_number=request.POST.get('invoice_number'),
-            delivery_note_number=request.POST.get('delivery_note_number'),
-            carrier=request.POST.get('carrier'),
-            quality_check_notes=request.POST.get('quality_check_notes')
-        )
+        action = request.POST.get('action')
         
-        all_accepted = True
-        any_received = False
+        # Check if this is a valid action
+        if action not in ['receive_partial', 'receive_complete']:
+            messages.error(request, "Invalid action.")
+            return redirect('receive_purchase_order', po_id=po_id)
         
-        # Process each item
-        for item in purchase_order.purchaseorderitem_set.all():
-            received_qty = Decimal(request.POST.get(f'received_qty_{item.po_item_id}', 0))
-            accepted_qty = Decimal(request.POST.get(f'accepted_qty_{item.po_item_id}', 0))
-            
-            if received_qty > 0:
-                any_received = True
+        try:
+            with transaction.atomic():
+                # Generate receiving number
+                receiving_number = f"REC{timezone.now().strftime('%Y%m%d%H%M%S')}"
                 
-                # Create received item record
-                ReceivedItem.objects.create(
-                    receiving=receiving,
-                    po_item=item,
-                    quantity_received=received_qty,
-                    quantity_accepted=accepted_qty,
-                    quantity_rejected=received_qty - accepted_qty,
-                    rejection_reason=request.POST.get(f'rejection_reason_{item.po_item_id}', ''),
-                    quality_checker=current_admin,
-                    quality_check_date=timezone.now()
+                # Create receiving record
+                receiving = PurchaseReceiving.objects.create(
+                    po=purchase_order,
+                    received_by=current_admin,
+                    invoice_number=request.POST.get('invoice_number', ''),
+                    delivery_note_number=request.POST.get('delivery_note_number', ''),
+                    carrier=request.POST.get('carrier', ''),
+                    quality_check_notes=request.POST.get('quality_check_notes', ''),
+                    overall_status='pending',  # Needs quality check
+                    receiving_number=receiving_number
                 )
                 
-                # Update PO item
-                item.received_quantity += accepted_qty
+                total_received = 0
                 
-                if accepted_qty < received_qty:
-                    item.quality_status = 'partial'
-                elif accepted_qty == received_qty:
-                    item.quality_status = 'passed'
+                # Process received items
+                for item in purchase_order.purchaseorderitem_set.all():
+                    received_qty_str = request.POST.get(f'received_qty_{item.po_item_id}', '0')
+                    received_qty = Decimal(received_qty_str) if received_qty_str else Decimal('0')
+                    
+                    if received_qty > 0:
+                        total_received += received_qty
+                        
+                        # Create received item - initially pending QC
+                        ReceivedItem.objects.create(
+                            receiving=receiving,
+                            po_item=item,
+                            quantity_received=received_qty,
+                            quantity_accepted=0,  # Will be set in QC
+                            quantity_rejected=0,  # Will be set in QC
+                            quality_checker=None,
+                            quality_check_date=None
+                        )
+                        
+                        # Update PO item with what was physically received
+                        item.received_quantity += received_qty
+                        item.quality_status = 'pending'
+                        item.save()
+                
+                # Update PO status
+                if action == 'receive_complete':
+                    # Mark for quality check
+                    purchase_order.status = 'partially_received'
+                    receiving.overall_status = 'pending'
                 else:
-                    item.quality_status = 'failed'
+                    purchase_order.status = 'partially_received'
+                    receiving.overall_status = 'partial'  # FIXED: Use 'partial' which is in choices
                 
-                item.save()
+                purchase_order.save()
+                receiving.save()
                 
-                if accepted_qty < item.quantity:
-                    all_accepted = False
-        
-        # Update receiving status
-        if any_received:
-            if all_accepted and all(item.received_quantity >= item.quantity for item in purchase_order.purchaseorderitem_set.all()):
-                receiving.overall_status = 'accepted'
-                purchase_order.status = 'received'
-                purchase_order.completed_date = timezone.now()
-                
-                # Auto stock in accepted items
-                stock_in_accepted_items(purchase_order, current_admin)
-            else:
-                receiving.overall_status = 'partial'
-                purchase_order.status = 'partially_received'
-        else:
-            receiving.overall_status = 'rejected'
-        
-        receiving.save()
-        purchase_order.save()
-        
-        # Create history
-        PurchaseOrderHistory.objects.create(
-            po=purchase_order,
-            old_status='sent',
-            new_status=purchase_order.status,
-            changed_by=current_admin,
-            notes="Goods received with quality check"
-        )
-        
-        messages.success(request, f"Goods received for {purchase_order.po_number}")
-        return redirect('purchase_orders_list')
+                # Create history
+                PurchaseOrderHistory.objects.create(
+                    po=purchase_order,
+                    old_status='ordered',
+                    new_status=purchase_order.status,
+                    changed_by=current_admin,
+                    notes=f"Goods received. Receiving #{receiving.receiving_number}. Total received: {total_received} units. Pending quality check."
+                )
+            
+            messages.success(request, f"Goods received successfully. Receiving #: {receiving.receiving_number}")
+            
+            # Redirect to quality check page
+            return redirect('quality_check_receiving', receiving_id=receiving.receiving_id)
+            
+        except Exception as e:
+            messages.error(request, f"Error receiving goods: {str(e)}")
+            return redirect('receive_purchase_order', po_id=po_id)
 
     return render(request, 'liong/receive_purchase_order.html', {
         'purchase_order': purchase_order,
@@ -2027,45 +2332,189 @@ def receive_purchase_order(request, po_id):
     })
 
 
-@transaction.atomic
-def stock_in_accepted_items(purchase_order, admin):
-    """Stock in accepted items to inventory"""
-    for item in purchase_order.purchaseorderitem_set.all():
-        if item.quality_status in ['passed', 'partial'] and item.received_quantity > 0:
-            # Get or create inventory balance
-            balance, created = InventoryBalance.objects.get_or_create(
-                product=item.product,
-                defaults={
-                    'unit': item.product.unit,
-                    'quantity_unit': 0
-                }
-            )
-            
-            # Update inventory
-            balance.quantity_unit += item.received_quantity
-            balance.save()
-            
-            # Create stock in record
-            StockIn.objects.create(
-                product=item.product,
-                unit=item.product.unit,
-                quantity=item.received_quantity,
-                date_in=timezone.now().date(),
-                acc=admin
-            )
-            
-            # Update requisition item purchase_qty to fulfilled_qty
-            # Find related requisition item
-            purchase_request = purchase_order.request
-            if purchase_request.requisition:
-                requisition_items = Requisition_Item.objects.filter(
-                    requisition=purchase_request.requisition,
-                    product=item.product
+def stock_in_accepted_items(receiving, admin):
+    """Stock in only the accepted items from a purchase order"""
+    try:
+        for received_item in receiving.receiveditem_set.all():
+            if received_item.quantity_accepted > 0:
+                product = received_item.po_item.product
+                accepted_qty = received_item.quantity_accepted
+                
+                # Create stock in record
+                StockIn.objects.create(
+                    product=product,
+                    unit=product.unit,
+                    quantity=accepted_qty,
+                    date_in=timezone.now().date(),
+                    acc=admin
                 )
-                for req_item in requisition_items:
-                    # Update fulfilled_qty if it exists, otherwise update purchase_qty
-                    req_item.fulfilled_qty = min(req_item.purchase_qty or req_item.quantity, item.received_quantity)
-                    req_item.save()
+                
+                # Update product stock
+                product.stock += int(accepted_qty)  # Assuming stock is integer
+                product.save()
+                
+                # Update or create inventory balance
+                balance, created = InventoryBalance.objects.get_or_create(
+                    product=product,
+                    defaults={
+                        'unit': product.unit,
+                        'opening_inventory': product.stock,
+                        'quantity_unit': product.stock,
+                        'min_stock': 0,
+                        'procurement_suggestion': 0
+                    }
+                )
+                if not created:
+                    balance.quantity_unit = product.stock
+                    balance.save()
+    except Exception as e:
+        print(f"Error stocking in accepted items: {e}")
+
+def handle_rejected_items_disposition(receiving, disposition, admin):
+    """Handle rejected items based on selected disposition"""
+    try:
+        rejected_items = RejectedItem.objects.filter(receiving=receiving, is_resolved=False)
+        
+        for rejected_item in rejected_items:
+            rejected_item.disposition = disposition
+            rejected_item.disposition_date = timezone.now()
+            rejected_item.disposed_by = admin
+            
+            if disposition == 'keep_as_rejected':
+                # Move to rejected stock quarantine
+                RejectedStock.objects.create(
+                    rejected_item=rejected_item,
+                    product=rejected_item.po_item.product,
+                    quantity=rejected_item.quantity,
+                    batch_number=f"REJ-{receiving.receiving_number}-{timezone.now().strftime('%Y%m%d')}",
+                    location='Quarantine Area',
+                    status='quarantine',
+                    notes=f"Rejected from receiving #{receiving.receiving_number}"
+                )
+                rejected_item.disposition_notes = "Moved to rejected stock quarantine"
+                rejected_item.is_resolved = True
+                
+            elif disposition == 'return':
+                # Create return request
+                return_request = ReturnRequest.objects.create(
+                    rejected_item=rejected_item,
+                    requested_by=admin,
+                    status='pending',
+                    notes=f"Return for rejected items from receiving #{receiving.receiving_number}"
+                )
+                rejected_item.disposition_notes = f"Return request created: {return_request.request_number}"
+                
+            elif disposition == 'destroy':
+                # Create disposal record
+                disposal = DisposalRecord.objects.create(
+                    rejected_item=rejected_item,
+                    method='landfill',
+                    disposal_date=timezone.now().date(),
+                    disposed_by=admin,
+                    notes=f"Disposal of rejected items from receiving #{receiving.receiving_number}"
+                )
+                rejected_item.disposition_notes = f"Disposal record created: {disposal.disposal_number}"
+                rejected_item.is_resolved = True
+                
+            elif disposition == 'replace':
+                # Create replacement request
+                replacement = ReplacementRequest.objects.create(
+                    rejected_item=rejected_item,
+                    requested_by=admin,
+                    status='pending',
+                    notes=f"Replacement for rejected items from receiving #{receiving.receiving_number}"
+                )
+                rejected_item.disposition_notes = f"Replacement request created: {replacement.request_number}"
+            
+            rejected_item.save()
+    except Exception as e:
+        print(f"Error handling rejected items: {e}")
+
+def get_receiving_details(request, receiving_id):
+    """API endpoint to get receiving details"""
+    if 'acc_id' not in request.session:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    receiving = get_object_or_404(PurchaseReceiving, receiving_id=receiving_id)
+    
+    data = {
+        'receiving_id': receiving.receiving_id,
+        'receiving_number': receiving.receiving_number,
+        'po_number': receiving.po.po_number,
+        'supplier_name': receiving.po.supplier.name,
+        'receive_date': receiving.receive_date.strftime('%Y-%m-%d'),
+        'status': receiving.get_overall_status_display(),
+        'items': []
+    }
+    
+    for received_item in receiving.receiveditem_set.all():
+        data['items'].append({
+            'item_id': received_item.received_item_id,
+            'product_name': received_item.po_item.product.name,
+            'quantity_received': float(received_item.quantity_received),
+            'quantity_accepted': float(received_item.quantity_accepted),
+            'quantity_rejected': float(received_item.quantity_rejected),
+            'unit': received_item.po_item.product.unit,
+            'rejection_reason': received_item.rejection_reason or '',
+            'quality_checker': received_item.quality_checker.name if received_item.quality_checker else '',
+            'quality_check_date': received_item.quality_check_date.strftime('%Y-%m-%d %H:%M') if received_item.quality_check_date else ''
+        })
+    
+    return JsonResponse(data)
+
+def update_rejection_disposition(request, rejected_id):
+    """API endpoint to update rejection disposition"""
+    if 'acc_id' not in request.session:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    except Admin.DoesNotExist:
+        return JsonResponse({'error': 'Admin not found'}, status=404)
+    
+    rejected_item = get_object_or_404(RejectedItem, rejected_id=rejected_id)
+    disposition = request.POST.get('disposition')
+    notes = request.POST.get('notes', '')
+    
+    if disposition not in ['return', 'keep_as_rejected', 'destroy', 'replace']:
+        return JsonResponse({'error': 'Invalid disposition'}, status=400)
+    
+    try:
+        with transaction.atomic():
+            rejected_item.disposition = disposition
+            rejected_item.disposition_date = timezone.now()
+            rejected_item.disposed_by = current_admin
+            rejected_item.disposition_notes = notes
+            
+            if disposition == 'keep_as_rejected':
+                # Check if already in rejected stock
+                if not RejectedStock.objects.filter(rejected_item=rejected_item).exists():
+                    RejectedStock.objects.create(
+                        rejected_item=rejected_item,
+                        product=rejected_item.po_item.product,
+                        quantity=rejected_item.quantity,
+                        batch_number=f"REJ-{rejected_item.receiving.receiving_number}-{timezone.now().strftime('%Y%m%d')}",
+                        location='Quarantine Area',
+                        status='quarantine',
+                        notes=notes or f"Rejected from receiving #{rejected_item.receiving.receiving_number}"
+                    )
+                    rejected_item.is_resolved = True
+            
+            rejected_item.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Disposition updated successfully',
+                'rejected_id': rejected_item.rejected_id,
+                'disposition': disposition,
+                'disposition_date': rejected_item.disposition_date.strftime('%Y-%m-%d %H:%M')
+            })
+            
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 # ============================================
@@ -2913,3 +3362,853 @@ def mark_as_received(request, requisition_id):
             messages.error(request, f"Error marking requisition as received: {str(e)}")
     
     return redirect('request_history')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ============================================
+# REPORTS SYSTEM - UPDATED WITH FIXED IMPORTS
+# ============================================
+from django.db.models import Count, Sum, Avg, Min, Max, Q, F
+from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncYear
+from datetime import datetime, timedelta
+import csv
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.db import transaction
+
+def reports_main(request):
+    """Main reports page with enhanced statistics and graphs"""
+    if 'acc_id' not in request.session:
+        messages.error(request, "Please log in first.")
+        return redirect('admin_login')
+
+    current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    
+    # Only allow certain roles to view reports
+    allowed_roles = ['super_admin', 'inventory_admin']
+    if current_admin.role not in allowed_roles:
+        messages.error(request, "You don't have permission to view reports.")
+        return redirect('adminDashboard')
+    
+    # Get current date for filtering
+    today = timezone.now().date()
+    start_of_month = today.replace(day=1)
+    start_of_week = today - timedelta(days=today.weekday())
+    
+    # Current statistics for dashboard
+    context = {
+        'current_admin': current_admin,
+        'today': today,
+        'stats': get_current_stats(),
+        'employee_stats': get_employee_stats(),
+        'inventory_stats': get_inventory_stats(),
+        'time_stats': get_time_stats(start_of_week, start_of_month),
+        'status_stats': get_status_stats(),
+        'financial_stats': get_financial_stats(start_of_month),
+        'trends_stats': get_trends_stats(),  # Make sure this is included
+    }
+    return render(request, 'liong/reports.html', context)
+
+def get_chart_data():
+    """Get data specifically formatted for charts"""
+    today = timezone.now().date()
+    thirty_days_ago = today - timedelta(days=30)
+    
+    # Daily requisitions for line chart
+    daily_requisitions = []
+    for i in range(29, -1, -1):
+        date = today - timedelta(days=i)
+        count = Requisition.objects.filter(
+            date_requested__date=date
+        ).count()
+        daily_requisitions.append({
+            'date': date.strftime('%b %d'),
+            'count': count
+        })
+    
+    # Status distribution for pie chart
+    status_distribution = Requisition.objects.values('status').annotate(
+        count=Count('requisition_id')
+    ).order_by('-count')
+    
+    # Top 10 products by requests
+    top_products = Requisition_Item.objects.values(
+        'product__name'
+    ).annotate(
+        total_requests=Count('requisition'),
+        total_quantity=Sum('quantity')
+    ).order_by('-total_quantity')[:10]
+    
+    # Monthly trend (last 6 months)
+    monthly_trend = []
+    for i in range(5, -1, -1):
+        month_date = today.replace(day=1) - timedelta(days=30*i)
+        month_start = month_date.replace(day=1)
+        if i == 0:
+            month_end = today
+        else:
+            next_month = month_date.replace(day=28) + timedelta(days=4)
+            month_end = next_month.replace(day=1) - timedelta(days=1)
+        
+        month_count = Requisition.objects.filter(
+            date_requested__range=[month_start, month_end]
+        ).count()
+        
+        monthly_trend.append({
+            'month': month_date.strftime('%b'),
+            'count': month_count
+        })
+    
+    # Employee performance data
+    employee_data = []
+    for emp in Employee.objects.filter(status='active').annotate(
+        total_requests=Count('requisition'),
+        completed_requests=Count('requisition', filter=Q(requisition__status='Received'))
+    ).order_by('-total_requests')[:8]:
+        if emp.total_requests > 0:
+            completion_rate = (emp.completed_requests / emp.total_requests) * 100
+        else:
+            completion_rate = 0
+        
+        employee_data.append({
+            'name': emp.employee_name,
+            'requests': emp.total_requests,
+            'completion_rate': round(completion_rate, 1)
+        })
+    
+    return {
+        'daily_requisitions': daily_requisitions,
+        'status_distribution': list(status_distribution),
+        'top_products': list(top_products),
+        'monthly_trend': monthly_trend,
+        'employee_data': employee_data,
+    }
+
+
+def get_current_stats():
+    """Get current system statistics"""
+    today = timezone.now().date()
+    
+    return {
+        'total_requisitions': Requisition.objects.count(),
+        'pending_approval': Requisition.objects.filter(status='Pending Approval').count(),
+        'ready_for_pickup': Requisition.objects.filter(status='Ready for Pickup').count(),
+        'pending_purchase': PurchaseOrder.objects.filter(
+            status__in=['draft', 'sent', 'ordered']
+        ).count(),
+        'active_employees': Employee.objects.filter(status='active').count(),
+        'total_products': Products.objects.count(),
+        'completed_today': Requisition.objects.filter(
+            status='Received',
+            date_requested__date=today
+        ).count(),
+        'low_stock': InventoryBalance.objects.filter(
+            quantity_unit__lt=F('min_stock')
+        ).exclude(min_stock=0).count(),
+    }
+
+
+def get_inventory_stats():
+    """Get inventory statistics using fixed threshold of 5 for low stock"""
+    inventory_items = InventoryBalance.objects.select_related('product').all()
+    
+    # Categorize inventory using fixed threshold
+    low_stock_items = []
+    out_of_stock_items = []
+    healthy_stock_items = []
+    
+    total_value = 0
+    
+    for item in inventory_items:
+        # Calculate current value
+        try:
+            latest_price = PurchaseOrderItem.objects.filter(
+                product=item.product
+            ).order_by('-po__created_date').values_list('unit_price', flat=True).first()
+            
+            if latest_price:
+                current_value = float(item.quantity_unit) * float(latest_price)
+            else:
+                current_value = 0
+            total_value += current_value
+            item.current_value = current_value
+        except Exception as e:
+            print(f"Error calculating value for {item.product.name}: {e}")
+            current_value = 0
+            item.current_value = 0
+        
+        # Calculate deficit for low stock items - using fixed threshold of 5
+        current_stock = float(item.quantity_unit) if item.quantity_unit else 0
+        LOW_STOCK_THRESHOLD = 5
+        
+        # Calculate deficit: how much below 5
+        item.deficit = max(LOW_STOCK_THRESHOLD - current_stock, 0) if current_stock < LOW_STOCK_THRESHOLD else 0
+        
+        # Categorize: 
+        # - 0 = out of stock
+        # - 1-4 = low stock (below threshold of 5)
+        # - 5+ = healthy stock
+        if current_stock == 0:
+            out_of_stock_items.append(item)
+        elif 0 < current_stock < LOW_STOCK_THRESHOLD:
+            low_stock_items.append(item)
+        else:  # current_stock >= 5
+            healthy_stock_items.append(item)
+    
+    # Stock movement (last 30 days)
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    
+    stock_in_total = StockIn.objects.filter(
+        date_in__gte=thirty_days_ago
+    ).aggregate(total=Sum('quantity'))['total'] or 0
+    
+    stock_out_total = StockOut.objects.filter(
+        date_out__gte=thirty_days_ago,
+        status='issued'
+    ).aggregate(total=Sum('quantity'))['total'] or 0
+    
+    stock_movement = {
+        'stock_in': float(stock_in_total),
+        'stock_out': float(stock_out_total),
+    }
+    
+    return {
+        'total_items': inventory_items.count(),
+        'low_stock_count': len(low_stock_items),
+        'out_of_stock_count': len(out_of_stock_items),
+        'healthy_stock_count': len(healthy_stock_items),
+        'total_value': round(total_value, 2),
+        'stock_movement': stock_movement,
+        'low_stock_items': low_stock_items[:10],
+        'out_of_stock_items': out_of_stock_items[:10],
+        'all_items': inventory_items,
+    }
+
+
+
+# Update the get_financial_stats function:
+def get_financial_stats(start_of_month):
+    """Get financial statistics (if available)"""
+    # Purchase orders this month
+    monthly_purchases = PurchaseOrder.objects.filter(
+        created_date__gte=start_of_month
+    ).aggregate(
+        total=Sum('total_amount'),
+        count=Count('po_id'),
+        avg=Avg('total_amount')
+    )
+    
+    # Top suppliers by spending - get supplier IDs and names with aggregates
+    from django.db.models import Max
+    
+    top_suppliers_query = PurchaseOrder.objects.values(
+        'supplier__supplier_id', 'supplier__name'
+    ).annotate(
+        total_spent=Sum('total_amount'),
+        order_count=Count('po_id'),
+        last_order_date=Max('created_date')
+    ).order_by('-total_spent')[:10]
+    
+    
+    # Convert QuerySet to list of dictionaries with proper structure
+    top_suppliers = []
+    for item in top_suppliers_query:
+        # Get supplier name - handle None case
+        supplier_name = item.get('supplier__name')
+        
+        # If supplier_name is None or empty, try to get it from Supplier model
+        if not supplier_name and item.get('supplier__supplier_id'):
+            try:
+                supplier = Supplier.objects.get(supplier_id=item['supplier__supplier_id'])
+                supplier_name = supplier.name
+                print(f"DEBUG - Fetched supplier name from DB: {supplier_name}")
+            except Supplier.DoesNotExist:
+                supplier_name = "Unknown Supplier"
+                print(f"DEBUG - Supplier not found: {item['supplier__supplier_id']}")
+        
+        # Calculate average order value
+        avg_order = 0
+        if item.get('order_count', 0) > 0 and item.get('total_spent'):
+            avg_order = item['total_spent'] / item['order_count']
+        
+        top_suppliers.append({
+            'supplier_name': supplier_name or "No Name",  # Ensure we always have a name
+            'total_spent': item.get('total_spent') or 0,
+            'order_count': item.get('order_count') or 0,
+            'last_order_date': item.get('last_order_date'),
+            'avg_order': avg_order
+        })
+    
+    
+    # Recent purchase orders (last 10)
+    recent_purchases = PurchaseOrder.objects.select_related('supplier').order_by('-created_date')[:10]
+    
+    # Inventory valuation
+    total_inventory_value = 0
+    inventory_items = InventoryBalance.objects.all()
+    
+    for item in inventory_items:
+        try:
+            latest_price = PurchaseOrderItem.objects.filter(
+                product=item.product
+            ).order_by('-po__created_date').values_list('unit_price', flat=True).first()
+            if latest_price:
+                total_inventory_value += float(item.quantity_unit) * float(latest_price)
+        except Exception as e:
+            print(f"Error calculating inventory value: {e}")
+            continue
+    
+    return {
+        'monthly_purchases': monthly_purchases['total'] or 0,
+        'avg_purchase_order': monthly_purchases['avg'] or 0,
+        'total_orders': monthly_purchases['count'] or 0,
+        'inventory_value': round(total_inventory_value, 2),
+        'top_suppliers': top_suppliers,
+        'recent_purchases': recent_purchases,
+    }
+
+# Update the get_employee_stats function to include inventory data:
+def get_employee_stats():
+    """Get employee statistics"""
+    # Get all inventory items for template access
+    all_inventory_items = InventoryBalance.objects.select_related('product').all()
+    
+    # Top 10 employees by number of requests
+    top_employees = Employee.objects.filter(status='active').annotate(
+        total_requests=Count('requisition'),
+        approved_requests=Count('requisition', filter=Q(requisition__status='Approved')),
+        completed_requests=Count('requisition', filter=Q(requisition__status='Received'))
+    ).order_by('-total_requests')[:10]
+    
+    # Most requested items across all employees
+    most_requested_items = Requisition_Item.objects.filter(
+    product__in=StockIn.objects.values('product').distinct()
+    ).values(
+        'product__name',
+        'product__product_id'  # Add product ID if you need it
+    ).annotate(
+        total_quantity=Sum('quantity'),
+        request_count=Count('requisition')
+    ).order_by('-total_quantity')[:10]
+    
+    # Employee performance metrics
+    employee_performance = []
+    for emp in Employee.objects.filter(status='active')[:5]:
+        reqs = Requisition.objects.filter(employee=emp)
+        if reqs.exists():
+            approval_rate = (reqs.filter(status='Approved').count() / reqs.count()) * 100
+            completion_rate = (reqs.filter(status='Received').count() / reqs.count()) * 100
+        else:
+            approval_rate = completion_rate = 0
+        
+        employee_performance.append({
+            'name': emp.employee_name,
+            'total_requests': reqs.count(),
+            'approval_rate': round(approval_rate, 1),
+            'completion_rate': round(completion_rate, 1),
+            'status': emp.status
+        })
+    
+    return {
+        'top_employees': list(top_employees),
+        'most_requested_items': list(most_requested_items),
+        'employee_performance': employee_performance,
+        'all_inventory_items': all_inventory_items,  # Add this
+    }
+
+
+def get_time_stats(start_of_week, start_of_month):
+    """Get time-based statistics"""
+    # Daily stats for last 7 days
+    daily_stats = []
+    for i in range(6, -1, -1):
+        date = timezone.now().date() - timedelta(days=i)
+        count = Requisition.objects.filter(
+            date_requested__date=date
+        ).count()
+        
+        daily_stats.append({
+            'date': date.strftime('%a'),
+            'full_date': date.strftime('%Y-%m-%d'),
+            'count': count
+        })
+    
+    # Weekly stats
+    weekly_count = Requisition.objects.filter(
+        date_requested__date__gte=start_of_week
+    ).count()
+    
+    # Monthly stats
+    monthly_count = Requisition.objects.filter(
+        date_requested__date__gte=start_of_month
+    ).count()
+    
+    # Status trend for the month
+    monthly_trend = Requisition.objects.filter(
+        date_requested__date__gte=start_of_month
+    ).values('status').annotate(
+        count=Count('requisition_id')
+    ).order_by('-count')
+    
+    return {
+        'daily_stats': daily_stats,
+        'weekly_count': weekly_count,
+        'monthly_count': monthly_count,
+        'monthly_trend': list(monthly_trend),
+        'avg_daily': round(monthly_count / max(timezone.now().date().day, 1), 1)
+    }
+
+
+def get_status_stats():
+    """Get status-based statistics"""
+    # All requisitions by status
+    all_status = Requisition.objects.values('status').annotate(
+        count=Count('requisition_id')
+    ).order_by('-count')
+    
+    # Aging analysis - requisitions older than 7 days
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    old_requisitions = Requisition.objects.filter(
+        date_requested__lt=seven_days_ago
+    ).exclude(status__in=['Received', 'Denied', 'Fulfilled']).count()
+    
+    # Ready for pickup details
+    ready_items = Requisition.objects.filter(
+        status='Ready for Pickup'
+    ).select_related('employee').order_by('date_requested')[:10]
+    
+    # Pending approval details
+    pending_items = Requisition.objects.filter(
+        status='Pending Approval'
+    ).select_related('employee').order_by('date_requested')[:10]
+    
+    return {
+        'all_status': list(all_status),
+        'old_requisitions': old_requisitions,
+        'ready_items': list(ready_items),
+        'pending_items': list(pending_items),
+        'status_distribution': {item['status']: item['count'] for item in all_status}
+    }
+
+
+
+def get_report_data(request, report_type):
+    """AJAX endpoint to get specific report data"""
+    if 'acc_id' not in request.session:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    try:
+        current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+        allowed_roles = ['super_admin', 'inventory_admin']
+        if current_admin.role not in allowed_roles:
+            return JsonResponse({'error': 'Unauthorized'}, status=403)
+        
+        # Get filter parameters
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        data = {}
+        
+        if report_type == 'employee':
+            # Get detailed employee data
+            employees = Employee.objects.filter(status='active').annotate(
+                total_requests=Count('requisition'),
+                total_items=Sum('requisition__requisition_item__quantity')
+            ).order_by('-total_requests')
+            
+            data = {
+                'employees': list(employees.values('employee_name', 'total_requests', 'total_items')),
+                'most_requested': list(Requisition_Item.objects.values(
+                    'product__name'
+                ).annotate(
+                    total=Sum('quantity')
+                ).order_by('-total')[:20])
+            }
+            
+        elif report_type == 'inventory':
+            # Get detailed inventory data
+            inventory = InventoryBalance.objects.select_related('product').all()
+            inventory_list = []
+            
+            for item in inventory:
+                inventory_list.append({
+                    'product': item.product.name,
+                    'current_stock': float(item.quantity_unit),
+                    'min_stock': float(item.min_stock),
+                    'unit': item.unit,
+                    'status': 'Low Stock' if item.min_stock > 0 and item.quantity_unit < item.min_stock else 
+                             'Out of Stock' if item.quantity_unit == 0 else 'Healthy'
+                })
+            
+            data = {'inventory': inventory_list}
+            
+        elif report_type == 'time':
+            # Get time-based data
+            today = timezone.now().date()
+            if not start_date:
+                start_date = today - timedelta(days=30)
+            if not end_date:
+                end_date = today
+            
+            # Daily counts
+            daily_data = []
+            try:
+                current = datetime.strptime(str(start_date), '%Y-%m-%d').date()
+                end = datetime.strptime(str(end_date), '%Y-%m-%d').date()
+                
+                while current <= end:
+                    count = Requisition.objects.filter(
+                        date_requested__date=current
+                    ).count()
+                    
+                    daily_data.append({
+                        'date': current.strftime('%Y-%m-%d'),
+                        'count': count
+                    })
+                    
+                    current += timedelta(days=1)
+            except Exception as e:
+                print(f"Error processing time data: {e}")
+            
+            data = {'daily_data': daily_data}
+            
+        elif report_type == 'status':
+            # Get status details
+            status_details = {}
+            for status in ['Pending Approval', 'Approved', 'Ready for Pickup', 'Received', 'Denied']:
+                items = Requisition.objects.filter(status=status)
+                status_details[status] = {
+                    'count': items.count(),
+                    'items': list(items.values(
+                        'requisition_id', 
+                        'employee__employee_name',
+                        'date_requested'
+                    )[:10])
+                }
+            
+            data = status_details
+            
+        elif report_type == 'financial':
+            # Get financial data
+            today = timezone.now().date()
+            if not start_date:
+                start_date = today - timedelta(days=30)
+            if not end_date:
+                end_date = today
+            
+            purchases = PurchaseOrder.objects.filter(
+                created_date__date__range=[start_date, end_date]
+            ).values('po_number', 'supplier__name', 'created_date', 'total_amount', 'status')
+            
+            total_amount = sum(p['total_amount'] for p in purchases if p['total_amount'])
+            
+            data = {
+                'purchases': list(purchases),
+                'total': total_amount
+            }
+        
+        return JsonResponse(data)
+        
+    except Exception as e:
+        print(f"Error in get_report_data: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def export_report_csv(request, report_type):
+    """Export report data to CSV"""
+    if 'acc_id' not in request.session:
+        return HttpResponse('Please log in first.', status=401)
+    
+    current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    
+    if current_admin.role not in ['super_admin', 'inventory_admin']:
+        return HttpResponse('Unauthorized', status=403)
+    
+    response = HttpResponse(content_type='text/csv')
+    filename = f"{report_type}_report_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    writer = csv.writer(response)
+    
+    if report_type == 'employee':
+        writer.writerow(['Employee Name', 'Total Requests', 'Approved Requests', 
+                        'Completed Requests', 'Total Items Requested'])
+        
+        employees = Employee.objects.filter(status='active').annotate(
+            total_requests=Count('requisition'),
+            approved_requests=Count('requisition', filter=Q(requisition__status='Approved')),
+            completed_requests=Count('requisition', filter=Q(requisition__status='Received')),
+            total_items=Sum('requisition__requisition_item__quantity')
+        )
+        
+        for emp in employees:
+            writer.writerow([
+                emp.employee_name,
+                emp.total_requests or 0,
+                emp.approved_requests or 0,
+                emp.completed_requests or 0,
+                emp.total_items or 0
+            ])
+    
+    elif report_type == 'inventory':
+        writer.writerow(['Product Name', 'Current Stock', 'Minimum Stock', 
+                        'Unit', 'Status', 'Last Updated'])
+        
+        items = InventoryBalance.objects.select_related('product').all()
+        for item in items:
+            status = 'Healthy'
+            if item.quantity_unit == 0:
+                status = 'Out of Stock'
+            elif item.min_stock > 0 and item.quantity_unit < item.min_stock:
+                status = 'Low Stock'
+            
+            writer.writerow([
+                item.product.name,
+                item.quantity_unit,
+                item.min_stock,
+                item.unit,
+                status,
+                item.last_updated.strftime('%Y-%m-%d %H:%M')
+            ])
+    
+    elif report_type == 'requisitions':
+        writer.writerow(['Requisition ID', 'Employee', 'Date Requested', 
+                        'Status', 'Items Count', 'Remarks'])
+        
+        reqs = Requisition.objects.select_related('employee').all()
+        for req in reqs:
+            writer.writerow([
+                req.requisition_id,
+                req.employee.employee_name,
+                req.date_requested.strftime('%Y-%m-%d %H:%M'),
+                req.status,
+                req.requisition_item_set.count(),
+                req.remarks or ''
+            ])
+    
+    elif report_type == 'purchases':
+        writer.writerow(['PO Number', 'Supplier', 'Date', 'Status', 
+                        'Total Amount', 'Items Count', 'Payment Terms'])
+        
+        pos = PurchaseOrder.objects.select_related('supplier').all()
+        for po in pos:
+            item_count = po.purchaseorderitem_set.count()
+            writer.writerow([
+                po.po_number,
+                po.supplier.name,
+                po.created_date.strftime('%Y-%m-%d'),
+                po.get_status_display(),
+                po.total_amount,
+                item_count,
+                po.payment_terms
+            ])
+    
+    return response
+
+
+
+def get_trends_stats():
+    """Get trends and patterns for product requests"""
+    today = timezone.now().date()
+    thirty_days_ago = today - timedelta(days=30)
+    ninety_days_ago = today - timedelta(days=90)
+    
+    # Top 15 most requested items in last 90 days
+    # FIX: Accessing product__unit instead of trying to get it separately
+    most_requested = Requisition_Item.objects.filter(
+        requisition__date_requested__gte=ninety_days_ago
+    ).values(
+        'product__name', 
+        'product__product_id',
+        'product__unit'  # ADD THIS - product has unit field
+    ).annotate(
+        total_requests=Count('requisition'),
+        total_quantity=Sum('quantity'),
+        avg_per_request=Avg('quantity'),
+        latest_request=Max('requisition__date_requested')
+    ).order_by('-total_quantity')[:15]
+    
+    # Add inventory data and calculate trends
+    trending_items = []
+    for item in most_requested:
+        product_id = item['product__product_id']
+        
+        # Get inventory data
+        try:
+            inventory = InventoryBalance.objects.get(product_id=product_id)
+            current_stock = float(inventory.quantity_unit)
+            min_stock = float(inventory.min_stock)
+            
+            # Calculate consumption rate (per week)
+            weekly_consumption = Requisition_Item.objects.filter(
+                product_id=product_id,
+                requisition__date_requested__gte=thirty_days_ago
+            ).aggregate(total=Sum('quantity'))['total'] or 0
+            
+            weekly_consumption = float(weekly_consumption) / 4  # Approximate weekly
+            
+            # Calculate weeks of stock remaining
+            if weekly_consumption > 0:
+                weeks_remaining = current_stock / weekly_consumption
+            else:
+                weeks_remaining = float('inf') if current_stock > 0 else 0
+            
+            # Determine trend status
+            if weeks_remaining < 1:
+                trend_status = 'critical'
+                trend_text = 'Critical - Restock immediately'
+                color_class = 'status-critical'  # Changed from status-denied
+            elif weeks_remaining < 2:
+                trend_status = 'high'
+                trend_text = 'High demand - Monitor closely'
+                color_class = 'status-high'  # Changed from status-pending
+            elif weeks_remaining < 4:
+                trend_status = 'medium'
+                trend_text = 'Steady demand'
+                color_class = 'status-medium'  # Changed from status-ready
+            else:
+                trend_status = 'low'
+                trend_text = 'Normal demand'
+                color_class = 'status-approved'
+            
+            # Calculate if this is an emerging trend
+            # Compare last 30 days vs previous 30-60 days
+            recent_period = thirty_days_ago
+            older_period = thirty_days_ago - timedelta(days=30)
+            
+            recent_count = Requisition_Item.objects.filter(
+                product_id=product_id,
+                requisition__date_requested__gte=recent_period
+            ).count()
+            
+            older_count = Requisition_Item.objects.filter(
+                product_id=product_id,
+                requisition__date_requested__range=[older_period, recent_period]
+            ).count()
+            
+            if older_count > 0:
+                growth_rate = ((recent_count - older_count) / older_count) * 100
+            else:
+                growth_rate = 100 if recent_count > 0 else 0
+            
+            trending_items.append({
+                'product_name': item['product__name'],
+                'product_id': product_id,
+                'unit': item['product__unit'],  # Get unit from product
+                'total_requests': item['total_requests'],
+                'total_quantity': float(item['total_quantity'] or 0),
+                'avg_per_request': float(item['avg_per_request'] or 0),
+                'current_stock': current_stock,
+                'min_stock': min_stock,
+                'weekly_consumption': round(weekly_consumption, 2),
+                'weeks_remaining': round(weeks_remaining, 1) if weeks_remaining != float('inf') else 999,
+                'growth_rate': round(growth_rate, 1),
+                'trend_status': trend_status,
+                'trend_text': trend_text,
+                'color_class': color_class,
+                'latest_request': item['latest_request'],
+                'stock_status': 'Low' if min_stock > 0 and current_stock < min_stock else 
+                               'Out' if current_stock == 0 else 'Healthy',
+                'recommendation': get_recommendation(
+                    current_stock, 
+                    min_stock, 
+                    weekly_consumption,
+                    growth_rate,
+                    weeks_remaining
+                )
+            })
+        except InventoryBalance.DoesNotExist:
+            continue
+    
+    # Group by unit
+    unit_trends = Requisition_Item.objects.filter(
+        requisition__date_requested__gte=thirty_days_ago
+    ).values('product__unit').annotate(
+        total_items=Count('product_id'),
+        total_quantity=Sum('quantity')
+    ).order_by('-total_quantity')[:10]
+    
+    # Get the most common unit
+    top_unit = unit_trends[0]['product__unit'] if unit_trends else 'N/A'
+    
+    # Seasonal/Weekly patterns - FIXED: Proper day name mapping
+    day_of_week_patterns = []
+    day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    
+    # Django uses 1=Sunday, 2=Monday, ..., 7=Saturday
+    for i in range(1, 8):
+        count = Requisition.objects.filter(
+            date_requested__week_day=i  # Use i directly
+        ).count()
+        day_of_week_patterns.append({
+            'day': day_names[i-1],  # Adjust index
+            'count': count
+        })
+    
+    # Peak hours analysis
+    peak_hours = []
+    for hour in range(8, 18):  # 8 AM to 5 PM
+        count = Requisition.objects.filter(
+            date_requested__hour=hour
+        ).count()
+        peak_hours.append({
+            'hour': f"{hour:02d}:00",
+            'count': count
+        })
+    
+    return {
+        'trending_items': trending_items,
+        'unit_trends': list(unit_trends),
+        'day_patterns': day_of_week_patterns,
+        'peak_hours': peak_hours,
+        'analysis_period': 'Last 90 days',
+        'top_unit': top_unit,
+        'total_trending_items': len(trending_items)
+    }
+
+
+def get_recommendation(current_stock, min_stock, weekly_consumption, growth_rate, weeks_remaining):
+    """Generate AI-powered recommendations based on trends"""
+    recommendations = []
+    
+    if current_stock == 0:
+        recommendations.append("⚠️ OUT OF STOCK - Order immediately")
+    elif weeks_remaining < 1:
+        recommendations.append("🚨 Critical stock - Reorder within 24 hours")
+    elif weeks_remaining < 2:
+        recommendations.append("⚠️ Low stock - Reorder within the week")
+    
+    if growth_rate > 50:
+        recommendations.append(f"📈 High growth ({growth_rate:.1f}%) - Consider increasing stock levels")
+    elif growth_rate > 20:
+        recommendations.append(f"📈 Growing demand - Monitor closely")
+    
+    if weekly_consumption > 0:
+        suggested_order = max(min_stock * 2, weekly_consumption * 4)  # 4 weeks supply or 2x min stock
+        recommendations.append(f"💡 Suggested order quantity: {suggested_order:.1f} units")
+    
+    if weeks_remaining > 8 and weekly_consumption < (min_stock or 10) / 4:
+        recommendations.append("📉 Low consumption - Consider reducing min stock level")
+    
+    if len(recommendations) == 0:
+        recommendations.append("✅ Stock levels optimal - Maintain current levels")
+    
+    return recommendations
