@@ -56,13 +56,13 @@ urlpatterns = [
     path('create-purchase-request/<int:requisition_id>/', views.create_purchase_request, name='create_purchase_request'),
     path('approved-purchase-requests/', views.approved_purchase_requests, name='approved_purchase_requests'),
     path('create-purchase-order/<int:request_id>/', views.create_purchase_order, name='create_purchase_order'),
-    path('purchase-orders/', views.purchase_orders_list, name='purchase_orders_list'),
     path('send-purchase-order/<int:po_id>/', views.send_purchase_order, name='send_purchase_order'),
     path('receive-purchase-order/<int:po_id>/', views.receive_purchase_order, name='receive_purchase_order'),
     path('ready-for-pickup/', views.ready_for_pickup_requisitions, name='ready_for_pickup_requisitions'),
     path('mark-ready-pickup/<int:requisition_id>/', views.mark_ready_for_pickup, name='mark_ready_for_pickup'),
     path('complete-pickup/<int:requisition_id>/', views.complete_pickup, name='complete_pickup'),
     path('purchase-order/purchase-again/<int:po_id>/', views.purchase_again, name='purchase_again'),
+    path('purchase-order/purchase-again/<uuid:po_id>/', views.purchase_again, name='purchase_again'),
 
 
 

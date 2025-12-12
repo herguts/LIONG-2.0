@@ -63,38 +63,6 @@
             </div>
             
             <div class="stat-card">
-                <i class="fa-solid fa-paper-plane stat-icon"></i>
-                <div class="stat-value">
-                    {% with sent_count=0 %}
-                        {% for po in purchase_orders %}
-                            {% if po.status == 'sent' or po.status == 'ordered' %}
-                                {% widthratio sent_count|add:1 1 1 as sent_count %}
-                            {% endif %}
-                        {% endfor %}
-                        {{ sent_count }}
-                    {% endwith %}
-                </div>
-                <div class="stat-label">Sent/Ordered</div>
-                <div class="stat-desc">Active orders</div>
-            </div>
-            
-            <div class="stat-card">
-                <i class="fa-solid fa-boxes stat-icon"></i>
-                <div class="stat-value">
-                    {% with received_count=0 %}
-                        {% for po in purchase_orders %}
-                            {% if po.status == 'received' or po.status == 'partially_received' %}
-                                {% widthratio received_count|add:1 1 1 as received_count %}
-                            {% endif %}
-                        {% endfor %}
-                        {{ received_count }}
-                    {% endwith %}
-                </div>
-                <div class="stat-label">Received</div>
-                <div class="stat-desc">Completed orders</div>
-            </div>
-            
-            <div class="stat-card">
                 <i class="fa-solid fa-calendar-day stat-icon"></i>
                 <div class="stat-date">{% now "M d, Y" %}</div>
                 <div class="stat-label">Today's Date</div>
