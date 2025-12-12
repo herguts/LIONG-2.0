@@ -2575,6 +2575,45 @@ def quality_check_receiving(request, receiving_id):
                 
                 receiving.save()
                 
+                # =========== UPDATE REQUISITION STATUS TO "PURCHASED" ===========
+                # Check if this purchase order was created from a requisition
+                purchase_request = receiving.po.request if hasattr(receiving.po, 'request') else None
+                
+                if purchase_request:
+                    # Get the requisition linked to this purchase request
+                    requisition = purchase_request.requisition
+                    
+                    if requisition and requisition.status in ['Partially Approved – Pending Purchase', 'Pending Purchase']:
+                        # Check if all items have been purchased and quality checked
+                        all_items_purchased = True
+                        
+                        for req_item in requisition.requisition_item_set.all():
+                            # Check if there was a purchase quantity needed
+                            purchase_qty = req_item.purchase_qty or 0
+                            if purchase_qty > 0:
+                                # Check if this item was included in the PO
+                                po_items = PurchaseOrderItem.objects.filter(
+                                    po=receiving.po,
+                                    product=req_item.product
+                                )
+                                if not po_items.exists():
+                                    all_items_purchased = False
+                                    break
+                        
+                        if all_items_purchased:
+                            # Update requisition status to "Purchased"
+                            old_status = requisition.status
+                            requisition.status = "Purchased"
+                            requisition.save()
+                            
+                            # Create status history
+                            RequisitionStatusHistory.objects.create(
+                                requisition=requisition,
+                                old_status=old_status,
+                                new_status="Purchased",
+                                changed_by=current_admin,
+                            )
+                
                 if total_accepted > 0:
                     success, message = add_accepted_items_to_inventory(receiving, current_admin)
                     if not success:
@@ -3077,20 +3116,29 @@ def ready_for_pickup_requisitions(request):
                 for pr in purchase_requests:
                     # Check if purchase order exists and is received
                     purchase_orders = PurchaseOrder.objects.filter(
-                        request=pr,
-                        status='received'
+                        request=pr
+                    ).filter(
+                        status__in=['received', 'partially_received']  # Fixed: check both received statuses
                     )
                     
                     for po in purchase_orders:
                         # Check if this specific item was received
                         po_items = po.purchaseorderitem_set.filter(
-                            product=item.product,
-                            received_quantity__gte=purchase_qty
+                            product=item.product
                         )
                         
-                        if po_items.exists():
-                            purchase_complete = True
-                            break
+                        for po_item in po_items:
+                            # Check if enough was received (including partial)
+                            if po_item.received_quantity >= purchase_qty:
+                                purchase_complete = True
+                                break
+                            elif po_item.received_quantity > 0:
+                                # Check if partial is enough
+                                # Update purchase_qty to remaining
+                                purchase_qty = purchase_qty - po_item.received_quantity
+                                if purchase_qty <= 0:
+                                    purchase_complete = True
+                                    break
                     
                     if purchase_complete:
                         break
@@ -3102,9 +3150,11 @@ def ready_for_pickup_requisitions(request):
                     break
                 
                 # Purchase complete, check if stocked in
+                # Update available stock after purchase
+                available_stock = inv_balance.quantity_unit if inv_balance else 0
                 if available_stock < approved_qty:
                     can_fulfill = False
-                    items_info.append(f"{item.product.name}: Purchased but not yet stocked in")
+                    items_info.append(f"{item.product.name}: Purchased but not yet stocked in ({available_stock} available, need {approved_qty})")
                     break
             
             # Item doesn't need purchase but check stock
@@ -3118,6 +3168,13 @@ def ready_for_pickup_requisitions(request):
                 items_info.append(f"{item.product.name}: Available in stock")
         
         if can_fulfill:
+            # Check if requisition is already marked as "Ready for Pickup"
+            if req.status != 'Ready for Pickup':
+                # Add a temporary status attribute to show in template
+                req.display_status = 'Ready for Pickup'
+            else:
+                req.display_status = req.status
+                
             req.items_info = items_info
             ready_requisitions.append(req)
     

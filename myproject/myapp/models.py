@@ -171,7 +171,7 @@ class StockIn(models.Model):
         db_table = 'stock_in'
 
     def __str__(self):
-        return f"{self.product.item_name} - {self.quantity} {self.unit} (In)"
+        return f"{self.product.name} - {self.quantity} {self.unit} (In)"
 
 class StockOut(models.Model):
     stock_out_id = models.AutoField(primary_key=True)
@@ -201,7 +201,7 @@ class StockOut(models.Model):
         db_table = 'stock_out'
 
     def __str__(self):
-        return f"{self.product.item_name} - {self.quantity} {self.unit} (Out)"
+        return f"{self.product.name} - {self.quantity} {self.unit} (Out)"
     
 
 
