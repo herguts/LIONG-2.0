@@ -3,331 +3,1671 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIONG | Create Purchase Order</title>
+    <title>Purchase Orders</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <script src="https://unpkg.com/feather-icons"></script>
     <style>
         body {
-        margin: 0;
-        font-family: 'Poppins', sans-serif;
-        background: linear-gradient(135deg, #9722be, #1e1e2d);
-        color: #000000;
-        min-height: 100vh;
-    }
-
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #9722be, #1e1e2d);
+            color: #fff;
+            min-height: 100vh;
+        }
+        
         .main-content {
             margin-left: 250px;
             padding: 30px;
+            min-height: 100vh;
+            overflow-y: auto;
         }
-
+        
         @media (max-width: 768px) {
             .main-content {
                 margin-left: 0;
-                padding: 15px;
+                padding: 20px;
             }
         }
     </style>
 </head>
-<body class="bg-gray-50">
-     <inventory-sidebar></inventory-sidebar>
+<body>
 
-<!-- Assuming you have a sidebar component -->
-<div class="flex">
-    <!-- Sidebar placeholder - make sure this matches your actual sidebar -->
-    <div class="sidebar">
-        <!-- Your sidebar content here -->
-    </div>
+    <inventory-sidebar></inventory-sidebar>
 
-    <main class="main-content flex-1">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Create Purchase Orders</h1>
-            <div class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border">
-                <i class="fas fa-shopping-cart mr-1"></i>
+    <main class="main-content">
+        <!-- Welcome Header -->
+        <div class="welcome-header">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i class="fa-solid fa-user"></i>
+                    {{ current_admin.username|slice:"0:1"|upper }}
+                </div>
+                <div>
+                    <h2>Purchase Orders</h2>
+                </div>
+            </div>
+            <div class="admin-badge">
+                <i class="fa-solid fa-file-invoice"></i>
                 {{ current_admin.role|title }} • Purchasing
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fa-solid fa-file-invoice-dollar stat-icon"></i>
+                <div class="stat-value">{{ purchase_orders|length }}</div>
+                <div class="stat-label">Total Orders</div>
+                <div class="stat-desc">All purchase orders</div>
+            </div>
+            
+            <div class="stat-card">
+                <i class="fa-solid fa-paper-plane stat-icon"></i>
+                <div class="stat-value">
+                    {% with sent_count=0 %}
+                        {% for po in purchase_orders %}
+                            {% if po.status == 'sent' or po.status == 'ordered' %}
+                                {% widthratio sent_count|add:1 1 1 as sent_count %}
+                            {% endif %}
+                        {% endfor %}
+                        {{ sent_count }}
+                    {% endwith %}
+                </div>
+                <div class="stat-label">Sent/Ordered</div>
+                <div class="stat-desc">Active orders</div>
+            </div>
+            
+            <div class="stat-card">
+                <i class="fa-solid fa-boxes stat-icon"></i>
+                <div class="stat-value">
+                    {% with received_count=0 %}
+                        {% for po in purchase_orders %}
+                            {% if po.status == 'received' or po.status == 'partially_received' %}
+                                {% widthratio received_count|add:1 1 1 as received_count %}
+                            {% endif %}
+                        {% endfor %}
+                        {{ received_count }}
+                    {% endwith %}
+                </div>
+                <div class="stat-label">Received</div>
+                <div class="stat-desc">Completed orders</div>
+            </div>
+            
+            <div class="stat-card">
+                <i class="fa-solid fa-calendar-day stat-icon"></i>
+                <div class="stat-date">{% now "M d, Y" %}</div>
+                <div class="stat-label">Today's Date</div>
+                <div class="stat-desc">Current date</div>
             </div>
         </div>
 
         <!-- Messages -->
         {% if messages %}
-        <div class="mb-6">
+        <div class="messages-container">
             {% for message in messages %}
-            <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800 border border-yellow-200{% elif message.tags == 'info' %}bg-blue-100 text-blue-800 border border-blue-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
-                        {{ message }}
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" class="text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times"></i>
-                    </button>
+            <div class="message {% if message.tags == 'error' %}message-error{% else %}message-success{% endif %}">
+                <div class="message-content">
+                    {% if message.tags == 'error' %}
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    {% else %}
+                    <i class="fa-solid fa-circle-check"></i>
+                    {% endif %}
+                    {{ message }}
                 </div>
+                <button class="message-close" onclick="this.parentElement.style.display='none'">
+                    <i class="fa-solid fa-times"></i>
+                </button>
             </div>
             {% endfor %}
         </div>
         {% endif %}
 
-        <!-- Header Info -->
-        <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div class="flex items-center">
-                <i class="fas fa-file-invoice-dollar text-green-600 text-xl mr-3"></i>
-                <div>
-                    <h3 class="font-semibold text-green-800">Approved Purchase Requests</h3>
-                    <p class="text-green-600 text-sm">Create purchase orders from approved purchase requests</p>
+        <!-- Purchase Orders Table Container -->
+        <div class="form-container">
+            <div class="section-header">
+                <h3><i class="fa-solid fa-file-invoice-dollar"></i> Purchase Orders</h3>
+                <div class="section-header" style="border-bottom: none;">
+            </div>
+            <div class="status-filter">
+                <button onclick="filterPOs('all')" 
+                        class="filter-btn active">
+                    <i class="fa-solid fa-layer-group"></i> All
+                </button>
+                <button onclick="filterPOs('draft')" 
+                        class="filter-btn">
+                    <i class="fa-solid fa-file"></i> Draft
+                </button>
+                <button onclick="filterPOs('sent')" 
+                        class="filter-btn">
+                    <i class="fa-solid fa-paper-plane"></i> Sent
+                </button>
+                <button onclick="filterPOs('ordered')" 
+                        class="filter-btn">
+                    <i class="fa-solid fa-clipboard-check"></i> Ordered
+                </button>
+                <button onclick="filterPOs('partially_received')" 
+                        class="filter-btn">
+                    <i class="fa-solid fa-box-open"></i> Partial
+                </button>
+                <button onclick="filterPOs('received')" 
+                        class="filter-btn">
+                    <i class="fa-solid fa-check-circle"></i> Received
+                </button>
+        
+                <div class="header-actions">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" 
+                               id="searchInput" 
+                               placeholder="Search orders..." 
+                               class="search-input">
+                    </div>
+                </div>
+
+            <!-- Table -->
+            {% if purchase_orders %}
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th><i class="fa-solid fa-hashtag"></i> PO Number</th>
+                            <th><i class="fa-solid fa-truck"></i> Supplier</th>
+                            <th><i class="fa-solid fa-clipboard-list"></i> Requisition</th>
+                            <th><i class="fa-solid fa-money-bill-wave"></i> Total Amount</th>
+                            <th><i class="fa-solid fa-info-circle"></i> Status</th>
+                            <th><i class="fa-solid fa-calendar-alt"></i> Delivery Date</th>
+                            <th><i class="fa-solid fa-bolt"></i> Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="poTableBody">
+                        {% for po in purchase_orders %}
+                        <tr class="po-row animate__animated animate__fadeIn" data-status="{{ po.status }}">
+                            <td>
+                                <div class="po-info">
+                                    <strong>{{ po.po_number }}</strong>
+                                    <span class="date">{{ po.created_date|date:"M d, Y" }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="supplier-info">
+                                    <strong>{{ po.supplier.name }}</strong>
+                                    <span class="phone">{{ po.supplier.phone }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="req-info">
+                                    <a href="#" class="req-link">
+                                        #{{ po.request.requisition.requisition_id }}
+                                    </a>
+                                    <span class="employee">{{ po.request.requisition.employee.employee_name }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="amount">₱{{ po.total_amount|floatformat:2 }}</span>
+                            </td>
+                            <td>
+                                {% with status=po.status %}
+                                {% if status == 'draft' %}
+                                    <span class="status-badge status-draft">
+                                        <i class="fa-solid fa-file"></i> Draft
+                                    </span>
+                                {% elif status == 'sent' %}
+                                    <span class="status-badge status-sent">
+                                        <i class="fa-solid fa-paper-plane"></i> Sent
+                                    </span>
+                                {% elif status == 'ordered' %}
+                                    <span class="status-badge status-ordered">
+                                        <i class="fa-solid fa-clipboard-check"></i> Ordered
+                                    </span>
+                                {% elif status == 'partially_received' %}
+                                    <span class="status-badge status-partial">
+                                        <i class="fa-solid fa-box-open"></i> Partial
+                                    </span>
+                                {% elif status == 'received' %}
+                                    <span class="status-badge status-received">
+                                        <i class="fa-solid fa-check-circle"></i> Received
+                                    </span>
+                                {% else %}
+                                    <span class="status-badge status-other">
+                                        {{ po.get_status_display }}
+                                    </span>
+                                {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <div class="delivery-info">
+                                    {% if po.delivery_date %}
+                                        <div>{{ po.delivery_date|date:"M d, Y" }}</div>
+                                        {% if po.delivery_date < today %}
+                                        <div class="overdue">
+                                            <i class="fa-solid fa-exclamation-triangle"></i> Overdue
+                                        </div>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="not-set">Not set</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <!-- View Details -->
+                                    <button onclick="viewPODetails('{{ po.po_id }}')"
+                                            class="action-btn view-btn">
+                                        <i class="fa-solid fa-eye"></i> View
+                                    </button>
+                                    
+                                    <!-- Status Actions -->
+                                    {% if po.status == 'draft' %}
+                                    <form method="POST" action="{% url 'send_purchase_order' po.po_id %}" class="action-form">
+                                        {% csrf_token %}
+                                        <button type="submit" 
+                                                onclick="return confirm('Mark PO {{ po.po_number }} as sent to supplier?')"
+                                                class="action-btn send-btn">
+                                            <i class="fa-solid fa-paper-plane"></i> Send
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    
+                                    {% if po.status == 'sent' or po.status == 'ordered' %}
+                                    <a href="{% url 'receive_purchase_order' po.po_id %}"
+                                       class="action-btn receive-btn">
+                                        <i class="fa-solid fa-box-open"></i> Receive
+                                    </a>
+                                    {% endif %}
+                                    
+                                    <!-- Purchase Again button for partially_received status -->
+                                    {% if po.status == 'partially_received' %}
+                                    <button onclick="showPurchaseAgainModal('{{ po.po_id }}', '{{ po.po_number }}', '{{ po.supplier.supplier_id }}', '{{ po.payment_method }}')"
+                                            class="action-btn purchase-again-btn">
+                                        <i class="fa-solid fa-redo"></i> Purchase Again
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table Footer -->
+            <div class="table-footer">
+                <div class="footer-info">
+                    Showing <span class="count">{{ purchase_orders|length }}</span> purchase orders
+                </div>
+                <div class="footer-update">
+                    System: {{ current_admin.role|title }} • Purchasing
                 </div>
             </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fa-solid fa-file-invoice empty-icon"></i>
+                <h4>No Purchase Orders Found</h4>
+                <p>Create purchase orders from approved purchase requests.</p>
+            </div>
+            {% endif %}
         </div>
+    </main>
 
-        <!-- Approved Purchase Requests -->
-        <div class="space-y-6">
-            {% for pr in approved_requests %}
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-800">PR-{{ pr.request_id }}</h3>
-                        <p class="text-sm text-gray-600">From Requisition #{{ pr.requisition.requisition_id }} • Approved on {{ pr.approval_date|date:"M d, Y" }}</p>
-                    </div>
-                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                        Approved
-                    </span>
-                </div>
-                
-                <!-- Items Table -->
-                <div class="mb-4 overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity to Purchase</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Estimated Price</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            {% for item in pr.purchaserequestitem_set.all %}
-                            <tr>
-                                <td class="px-4 py-3">{{ item.product.name }}</td>
-                                <td class="px-4 py-3">{{ item.product.unit }}</td>
-                                <td class="px-4 py-3 font-medium">{{ item.quantity_to_purchase }}</td>
-                                <td class="px-4 py-3">₱{{ item.total_estimated_price|floatformat:2 }}</td>
-                            </tr>
-                            {% endfor %}
-                            <tr class="bg-gray-50">
-                                <td colspan="3" class="px-4 py-3 text-right font-bold">Total Estimated Cost:</td>
-                                <td class="px-4 py-3 font-bold text-lg">₱{{ pr.total_estimated_cost|floatformat:2 }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <!-- Create PO Form - FIXED: Added proper ID -->
-                <button type="button" onclick="togglePOForm('{{ pr.request_id }}')"
-                        class="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center">
-                    <i class="fas fa-plus-circle mr-2"></i> Create Purchase Order
+    <!-- PO Details Modal -->
+    <div id="poModal" class="modal hidden">
+        <div class="modal-overlay" onclick="closePOModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-invoice-dollar"></i> Purchase Order Details</h3>
+                <button class="modal-close" onclick="closePOModal()">
+                    <i class="fa-solid fa-times"></i>
                 </button>
-                
-                <!-- PO Form (hidden by default) - FIXED: Correct ID format -->
-                <div id="poForm{{ pr.request_id }}" class="hidden mt-4 p-4 bg-gray-50 rounded-lg border">
-                    <h4 class="font-semibold text-gray-800 mb-4">Create Purchase Order for PR-{{ pr.request_id }}</h4>
+            </div>
+            <div class="modal-body">
+                <div id="poModalContent">
+                    <!-- AJAX loads content here -->
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button onclick="closePOModal()" class="btn btn-secondary">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purchase Again Modal -->
+    <div id="purchaseAgainModal" class="modal hidden">
+        <div class="modal-overlay" onclick="closePurchaseAgainModal()"></div>
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-redo"></i> Purchase Again</h3>
+                <button class="modal-close" onclick="closePurchaseAgainModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="purchaseAgainForm" method="POST" class="space-y-6">
+                    {% csrf_token %}
+                    <input type="hidden" id="originalPoId" name="original_po_id">
                     
-                    <form method="POST" action="{% url 'create_purchase_order' pr.request_id %}" class="space-y-4">
-                        {% csrf_token %}
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Select Supplier *</label>
-                                <select name="supplier" required
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">-- Select Supplier --</option>
-                                    {% for supplier in suppliers %}
-                                    <option value="{{ supplier.supplier_id }}">{{ supplier.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Expected Delivery Date</label>
-                                <input type="date" name="delivery_date"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            </div>
+                    <div class="info-box">
+                        <div class="info-item">
+                            <label>Original PO:</label>
+                            <span id="originalPoNumber" class="info-value"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Supplier:</label>
+                            <span id="selectedSupplier" class="info-value"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-truck"></i> Supplier <span class="required">*</span></label>
+                            <select name="supplier" id="supplierSelect" required class="form-select">
+                                <option value="">-- Select Supplier --</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.supplier_id }}">{{ supplier.name }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         
-                        <!-- Payment Method -->
-                        <div class="mb-8">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                                <i class="fas fa-credit-card mr-2"></i> Payment Method
-                            </h3>
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-calendar-alt"></i> Expected Delivery Date</label>
+                            <input type="date" name="delivery_date" class="form-input" id="deliveryDate">
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Method -->
+                    <div class="payment-section">
+                        <div class="section-header" style="border-bottom: none;">
+                            <h4><i class="fa-solid fa-credit-card"></i> Payment Method</h4>
+                        </div>
+                        
+                        <div class="payment-grid">
+                            <!-- Cash on Delivery -->
+                            <label class="payment-option">
+                                <input type="radio" name="payment_method" value="cash_on_delivery" class="payment-radio" checked>
+                                <div class="payment-card">
+                                    <div class="payment-icon cash">
+                                        <i class="fa-solid fa-money-bill-wave"></i>
+                                    </div>
+                                    <div class="payment-info">
+                                        <h5>Cash on Delivery</h5>
+                                        <p>Pay when items are delivered</p>
+                                    </div>
+                                </div>
+                            </label>
                             
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <!-- Cash on Delivery -->
-                                <label class="payment-option cursor-pointer">
-                                    <input type="radio" name="payment_method" value="cash_on_delivery" class="hidden peer" checked>
-                                    <div class="p-4 border-2 border-gray-200 rounded-xl peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-blue-300 transition-all">
-                                        <div class="flex items-center">
-                                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                                                <i class="fas fa-money-bill-wave text-blue-600"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="font-semibold text-gray-800">Cash on Delivery</h4>
-                                                <p class="text-sm text-gray-600">Pay when items are delivered</p>
-                                            </div>
-                                        </div>
+                            <!-- Bank Transfer -->
+                            <label class="payment-option">
+                                <input type="radio" name="payment_method" value="bank_transfer" class="payment-radio">
+                                <div class="payment-card">
+                                    <div class="payment-icon bank">
+                                        <i class="fa-solid fa-university"></i>
                                     </div>
-                                </label>
-                                
-                                <!-- Bank Transfer -->
-                                <label class="payment-option cursor-pointer">
-                                    <input type="radio" name="payment_method" value="bank_transfer" class="hidden peer">
-                                    <div class="p-4 border-2 border-gray-200 rounded-xl peer-checked:border-green-500 peer-checked:bg-green-50 hover:border-green-300 transition-all">
-                                        <div class="flex items-center">
-                                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                                                <i class="fas fa-university text-green-600"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="font-semibold text-gray-800">Bank Transfer</h4>
-                                                <p class="text-sm text-gray-600">Direct bank deposit/transfer</p>
-                                            </div>
-                                        </div>
+                                    <div class="payment-info">
+                                        <h5>Bank Transfer</h5>
+                                        <p>Direct bank deposit/transfer</p>
                                     </div>
-                                </label>
-                                
-                                <!-- GCash -->
-                                <label class="payment-option cursor-pointer">
-                                    <input type="radio" name="payment_method" value="gcash" class="hidden peer">
-                                    <div class="p-4 border-2 border-gray-200 rounded-xl peer-checked:border-purple-500 peer-checked:bg-purple-50 hover:border-purple-300 transition-all">
-                                        <div class="flex items-center">
-                                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                                                <i class="fas fa-mobile-alt text-purple-600"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="font-semibold text-gray-800">GCash</h4>
-                                                <p class="text-sm text-gray-600">Mobile payment via GCash</p>
-                                            </div>
-                                        </div>
+                                </div>
+                            </label>
+                            
+                            <!-- GCash -->
+                            <label class="payment-option">
+                                <input type="radio" name="payment_method" value="gcash" class="payment-radio">
+                                <div class="payment-card">
+                                    <div class="payment-icon gcash">
+                                        <i class="fa-solid fa-mobile-alt"></i>
                                     </div>
-                                </label>
-                                
-                                <!-- Check -->
-                                <label class="payment-option cursor-pointer">
-                                    <input type="radio" name="payment_method" value="check" class="hidden peer">
-                                    <div class="p-4 border-2 border-gray-200 rounded-xl peer-checked:border-yellow-500 peer-checked:bg-yellow-50 hover:border-yellow-300 transition-all">
-                                        <div class="flex items-center">
-                                            <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">
-                                                <i class="fas fa-file-invoice-dollar text-yellow-600"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="font-semibold text-gray-800">Check</h4>
-                                                <p class="text-sm text-gray-600">Payment by company check</p>
-                                            </div>
-                                        </div>
+                                    <div class="payment-info">
+                                        <h5>GCash</h5>
+                                        <p>Mobile payment via GCash</p>
                                     </div>
-                                </label>
-                                
-                                <!-- Credit -->
-                                <label class="payment-option cursor-pointer">
-                                    <input type="radio" name="payment_method" value="credit" class="hidden peer">
-                                    <div class="p-4 border-2 border-gray-200 rounded-xl peer-checked:border-red-500 peer-checked:bg-red-50 hover:border-red-300 transition-all">
-                                        <div class="flex items-center">
-                                            <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                                                <i class="fas fa-credit-card text-red-600"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="font-semibold text-gray-800">Credit</h4>
-                                                <p class="text-sm text-gray-600">Pay later with credit terms</p>
-                                            </div>
-                                        </div>
+                                </div>
+                            </label>
+                            
+                            <!-- Check -->
+                            <label class="payment-option">
+                                <input type="radio" name="payment_method" value="check" class="payment-radio">
+                                <div class="payment-card">
+                                    <div class="payment-icon check">
+                                        <i class="fa-solid fa-file-invoice-dollar"></i>
                                     </div>
-                                </label>
-                                
-                                <!-- Custom Payment -->
-                                <div class="p-4 border-2 border-gray-200 rounded-xl">
-                                    <div class="flex items-center">
-                                        <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
-                                            <i class="fas fa-ellipsis-h text-gray-600"></i>
-                                        </div>
-                                        <div>
-                                            <h4 class="font-semibold text-gray-800">Other Method</h4>
-                                            <input type="text" 
-                                                name="custom_payment" 
-                                                placeholder="Specify payment method"
-                                                class="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                        </div>
+                                    <div class="payment-info">
+                                        <h5>Check</h5>
+                                        <p>Payment by company check</p>
                                     </div>
+                                </div>
+                            </label>
+                            
+                            <!-- Credit -->
+                            <label class="payment-option">
+                                <input type="radio" name="payment_method" value="credit" class="payment-radio">
+                                <div class="payment-card">
+                                    <div class="payment-icon credit">
+                                        <i class="fa-solid fa-credit-card"></i>
+                                    </div>
+                                    <div class="payment-info">
+                                        <h5>Credit</h5>
+                                        <p>Pay later with credit terms</p>
+                                    </div>
+                                </div>
+                            </label>
+                            
+                            <!-- Custom Payment -->
+                            <div class="custom-payment">
+                                <div class="payment-icon other">
+                                    <i class="fa-solid fa-ellipsis-h"></i>
+                                </div>
+                                <div class="payment-info">
+                                    <h5>Other Method</h5>
+                                    <input type="text" 
+                                        name="custom_payment" 
+                                        placeholder="Specify payment method"
+                                        class="custom-input">
                                 </div>
                             </div>
                         </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Notes to Supplier</label>
-                            <textarea name="notes" rows="3"
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                      placeholder="Any special instructions for the supplier..."></textarea>
-                        </div>
-                        
-                        <div class="flex justify-end space-x-3">
-                            <button type="button" 
-                                    onclick="togglePOForm('{{ pr.request_id }}')"
-                                    class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
-                                Cancel
-                            </button>
-                            <button type="submit" 
-                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
-                                <i class="fas fa-save mr-1"></i> Create Purchase Order
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-comment-dots"></i> Notes to Supplier</label>
+                        <textarea name="notes" rows="3"
+                                  class="form-textarea"
+                                  placeholder="Any special instructions for the supplier...">Re-order from PO-<span id="notesPoNumber"></span></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" 
+                                onclick="closePurchaseAgainModal()"
+                                class="btn btn-secondary">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                class="btn btn-primary">
+                            <i class="fa-solid fa-save"></i> Create New Purchase Order
+                        </button>
+                    </div>
+                </form>
             </div>
-            {% empty %}
-            <div class="text-center py-12 bg-white rounded-xl shadow">
-                <i class="fas fa-clipboard-check text-5xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500 text-lg font-medium">No approved purchase requests</p>
-                <p class="text-gray-400 text-sm mt-2">Approved purchase requests will appear here for PO creation.</p>
-            </div>
-            {% endfor %}
         </div>
-    </main>
-</div>
+    </div>
 
-    <script src="{% static 'js/inventory_dashboard.js' %}"></script>
-<script>
-// SUPER SIMPLE VERSION THAT WILL WORK
-function togglePOForm(requestId) {
-    const form = document.getElementById('poForm' + requestId);
-    if (form) {
-        // Simple toggle - if hidden, show it; if showing, hide it
-        form.style.display = form.style.display === 'none' ? 'block' : 'none';
-    } else {
-        console.log('Could not find form with ID: poForm' + requestId);
-        console.log('Available IDs:');
-        const allIds = [];
-        const allElements = document.getElementsByTagName('*');
-        for (let el of allElements) {
-            if (el.id) allIds.push(el.id);
+    <style>
+        /* Welcome Header */
+        .welcome-header {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
         }
-        console.log(allIds.filter(id => id.includes('poForm')));
-    }
-}
 
-// Initialize when page loads
-window.onload = function() {
-    console.log('Page loaded, checking for forms...');
-    const testForm = document.getElementById('poForm1');
-    console.log('Test form poForm1 exists:', !!testForm);
-    
-    // Set date defaults
-    const today = new Date().toISOString().split('T')[0];
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    const nextWeekStr = nextWeek.toISOString().split('T')[0];
-    
-    document.querySelectorAll('input[type="date"]').forEach(input => {
-        if (!input.value) input.value = nextWeekStr;
-        input.min = today;
-    });
-};
-</script>
+        .welcome-header h2 {
+            margin: 0 0 10px 0;
+            color: #ffdd59;
+            font-size: 28px;
+        }
 
+        .welcome-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .welcome-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            background: #00c853;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 14px;
+            width: fit-content;
+        }
+
+        .admin-badge {
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #00c853;
+            box-shadow: 0 12px 30px rgba(0, 200, 83, 0.2);
+        }
+
+        .stat-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            color: #ffdd59;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #00c853;
+        }
+
+        .stat-date {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #9c27b0;
+        }
+
+        .stat-label {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .stat-desc {
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
+        /* Messages */
+        .messages-container {
+            margin-bottom: 30px;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(10px);
+        }
+
+        .message-success {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid #00c853;
+        }
+
+        .message-error {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid #ff4757;
+        }
+
+        .message-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        .message-close:hover {
+            color: white;
+        }
+
+        /* Form Container */
+        .form-container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .form-container h3 {
+            margin: 0 0 25px 0;
+            color: #ffdd59;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Status Filter */
+        .status-filter {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.8);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .filter-btn.active {
+            background: #2196F3;
+            color: white;
+            border-color: #2196F3;
+        }
+
+        /* Header Actions */
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            margin-left: auto;
+            align-items: center;
+        }
+
+        .search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .search-input {
+            padding: 10px 15px 10px 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            width: 200px;
+            transition: 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #00c853;
+            box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.2);
+        }
+
+        .search-input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .data-table thead {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .data-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #ffdd59;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tbody tr {
+            transition: all 0.3s;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Table Content Styles */
+        .po-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .po-info strong {
+            color: white;
+            font-size: 14px;
+        }
+
+        .po-info .date {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .supplier-info, .req-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .supplier-info strong, .req-info strong {
+            color: white;
+            font-size: 14px;
+        }
+
+        .supplier-info .phone, .req-info .employee {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .req-link {
+            color: #2196F3;
+            text-decoration: none;
+        }
+
+        .req-link:hover {
+            text-decoration: underline;
+        }
+
+        .amount {
+            font-weight: 600;
+            color: #ffdd59;
+            font-size: 16px;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-draft {
+            background: rgba(158, 158, 158, 0.1);
+            border: 1px solid rgba(158, 158, 158, 0.3);
+            color: #9E9E9E;
+        }
+
+        .status-sent {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #FFC107;
+        }
+
+        .status-ordered {
+            background: rgba(33, 150, 243, 0.1);
+            border: 1px solid rgba(33, 150, 243, 0.3);
+            color: #2196F3;
+        }
+
+        .status-partial {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid rgba(255, 152, 0, 0.3);
+            color: #FF9800;
+        }
+
+        .status-received {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid rgba(0, 200, 83, 0.3);
+            color: #00c853;
+        }
+
+        .status-other {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* Delivery Info */
+        .delivery-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .delivery-info div:first-child {
+            color: white;
+            font-size: 14px;
+        }
+
+        .overdue {
+            font-size: 12px;
+            color: #ff4757;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 2px;
+        }
+
+        .not-set {
+            color: rgba(255,255,255,0.5);
+            font-style: italic;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .action-form {
+            margin: 0;
+        }
+
+        .action-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 12px;
+            text-decoration: none;
+        }
+
+        .view-btn {
+            background: #2196F3;
+            color: white;
+        }
+
+        .view-btn:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        .send-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .send-btn:hover {
+            background: #388E3C;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .receive-btn {
+            background: #9C27B0;
+            color: white;
+        }
+
+        .receive-btn:hover {
+            background: #7B1FA2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(156, 39, 176, 0.3);
+        }
+
+        .purchase-again-btn {
+            background: #FF9800;
+            color: white;
+        }
+
+        .purchase-again-btn:hover {
+            background: #F57C00;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+        }
+
+        /* Info Box */
+        .info-box {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .info-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-item label {
+            font-weight: 600;
+            color: #ffdd59;
+        }
+
+        .info-value {
+            color: white;
+        }
+
+        /* Form Styles for Modal */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #ffdd59;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-select, .form-input, .form-textarea {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+        }
+
+        .form-select:focus, .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #00c853;
+            box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.2);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .required {
+            color: #ff4757;
+        }
+
+        /* Payment Section */
+        .payment-section {
+            margin: 25px 0;
+        }
+
+        .payment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .payment-option {
+            cursor: pointer;
+        }
+
+        .payment-radio {
+            display: none;
+        }
+
+        .payment-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s;
+        }
+
+        .payment-radio:checked + .payment-card {
+            border-color: #00c853;
+            background: rgba(0, 200, 83, 0.1);
+        }
+
+        .payment-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .payment-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .payment-icon.cash {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+
+        .payment-icon.bank {
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196F3;
+        }
+
+        .payment-icon.gcash {
+            background: rgba(156, 39, 176, 0.2);
+            color: #9C27B0;
+        }
+
+        .payment-icon.check {
+            background: rgba(255, 152, 0, 0.2);
+            color: #FF9800;
+        }
+
+        .payment-icon.credit {
+            background: rgba(103, 58, 183, 0.2);
+            color: #673AB7;
+        }
+
+        .payment-icon.other {
+            background: rgba(158, 158, 158, 0.2);
+            color: #9E9E9E;
+        }
+
+        .payment-info h5 {
+            margin: 0 0 5px 0;
+            color: white;
+            font-size: 14px;
+        }
+
+        .payment-info p {
+            margin: 0;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .custom-payment {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .custom-input {
+            flex: 1;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+        }
+
+        /* Form Actions */
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        /* Table Footer */
+        .table-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 20px;
+            margin-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .footer-info .count {
+            color: #00c853;
+            font-weight: 600;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-icon {
+            font-size: 60px;
+            color: rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .empty-state h4 {
+            color: #ffdd59;
+            margin: 0 0 10px 0;
+            font-size: 20px;
+        }
+
+        .empty-state p {
+            opacity: 0.7;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 1001;
+        }
+
+        .modal-content {
+            background: rgba(139, 63, 160, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1002;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #ffdd59;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            font-size: 20px;
+            transition: 0.3s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .modal-body {
+            padding: 10px 0;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #00c853;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #03b34a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 200, 83, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255,255,255,0.9);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+            
+            .welcome-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+            }
+            
+            .welcome-header .user-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .admin-badge {
+                align-self: stretch;
+                justify-content: center;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .status-filter {
+                flex-direction: column;
+            }
+            
+            .filter-btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .header-actions {
+                margin-left: 0;
+                width: 100%;
+            }
+            
+            .search-input {
+                width: 100%;
+            }
+            
+            .data-table th,
+            .data-table td {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            .action-buttons {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            
+            .action-btn {
+                flex: 1;
+                min-width: 80px;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .payment-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .table-footer {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none;
+        }
+
+        /* Animation Classes */
+        .animate__fadeIn {
+            animation-duration: 0.5s;
+        }
+        
+        .space-y-6 > * + * {
+            margin-top: 1.5rem;
+        }
+    </style>
+
+    <script>
+        // Real-time clock
+        function updateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            const timeString = now.toLocaleDateString('en-US', options);
+            const timeElement = document.getElementById('currentTime');
+            if (timeElement) {
+                timeElement.innerHTML = '<i class="fa-solid fa-clock"></i> ' + timeString;
+            }
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Filter functionality
+        function filterPOs(status) {
+            const rows = document.querySelectorAll('.po-row');
+            rows.forEach(row => {
+                if (status === 'all' || row.dataset.status === status) {
+                    row.style.display = '';
+                    row.classList.add('animate__animated', 'animate__fadeIn');
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Update filter button styles
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            filterBtns.forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            event.target.classList.add('active');
+        }
+
+        // Search functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keyup', function() {
+                    const searchTerm = searchInput.value.toLowerCase();
+                    const rows = document.querySelectorAll('.po-row');
+                    
+                    rows.forEach(row => {
+                        const text = row.textContent.toLowerCase();
+                        if (text.includes(searchTerm)) {
+                            row.style.display = '';
+                            row.classList.add('animate__animated', 'animate__fadeIn');
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    });
+                });
+            }
+            
+            // Auto-remove messages after 5 seconds
+            setTimeout(function() {
+                const messages = document.querySelectorAll('.message');
+                messages.forEach(function(message) {
+                    message.style.transition = 'opacity 0.5s';
+                    message.style.opacity = '0';
+                    setTimeout(() => message.remove(), 500);
+                });
+            }, 5000);
+            
+            // Set today's date for overdue check
+            window.today = new Date().toISOString().split('T')[0];
+            
+            // Set minimum date for delivery date input
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const minDate = tomorrow.toISOString().split('T')[0];
+            const deliveryDateInput = document.getElementById('deliveryDate');
+            if (deliveryDateInput) {
+                deliveryDateInput.min = minDate;
+            }
+        });
+        
+        // Modal Functions for PO Details
+        function viewPODetails(poId) {
+            fetch(`/purchase-order/detail/${poId}/`)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById("poModalContent").innerHTML = html;
+                    document.getElementById("poModal").classList.remove("hidden");
+                })
+                .catch(error => {
+                    console.error('Error loading PO details:', error);
+                    document.getElementById("poModalContent").innerHTML = 
+                        '<div class="error-message">Error loading purchase order details.</div>';
+                });
+        }
+        
+        function closePOModal() {
+            document.getElementById("poModal").classList.add("hidden");
+            document.getElementById("poModalContent").innerHTML = '';
+        }
+        
+        // Purchase Again Modal Functions
+        function showPurchaseAgainModal(poId, poNumber, supplierId, paymentMethod) {
+            // Set the original PO ID
+            document.getElementById('originalPoId').value = poId;
+            document.getElementById('originalPoNumber').textContent = poNumber;
+            document.getElementById('notesPoNumber').textContent = poNumber;
+            
+            // Set the supplier dropdown to the original supplier
+            const supplierSelect = document.getElementById('supplierSelect');
+            supplierSelect.value = supplierId;
+            
+            // Get the supplier name and display it
+            const selectedOption = supplierSelect.querySelector(`option[value="${supplierId}"]`);
+            if (selectedOption) {
+                document.getElementById('selectedSupplier').textContent = selectedOption.textContent;
+            }
+            
+            // Set the payment method
+            if (paymentMethod) {
+                const paymentRadio = document.querySelector(`input[name="payment_method"][value="${paymentMethod}"]`);
+                if (paymentRadio) {
+                    paymentRadio.checked = true;
+                }
+            }
+            
+            // Show the modal
+            document.getElementById("purchaseAgainModal").classList.remove("hidden");
+        }
+        
+        function closePurchaseAgainModal() {
+            document.getElementById("purchaseAgainModal").classList.add("hidden");
+            // Reset form
+            document.getElementById('purchaseAgainForm').reset();
+        }
+        
+        // Handle supplier selection change
+        document.getElementById('supplierSelect').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            document.getElementById('selectedSupplier').textContent = selectedOption.textContent;
+        });
+        
+        // Handle form submission
+        document.getElementById('purchaseAgainForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const formData = new FormData(this);
+            const poId = document.getElementById('originalPoId').value;
+            
+            // Submit the form
+            fetch(`/purchase-order/purchase-again/${poId}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.json();
+                }
+            })
+            .then(data => {
+                if (data && data.success) {
+                    alert(data.message);
+                    closePurchaseAgainModal();
+                    window.location.href = `/purchase-order/detail/${data.new_po_id}/`;
+                } else if (data) {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while creating the purchase order.');
+            });
+        });
+        
+        // Close modals when clicking outside
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function() {
+                if (this.parentElement.id === 'poModal') {
+                    closePOModal();
+                } else if (this.parentElement.id === 'purchaseAgainModal') {
+                    closePurchaseAgainModal();
+                }
+            });
+        });
+        
+        // Close modals on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (!document.getElementById('poModal').classList.contains('hidden')) {
+                    closePOModal();
+                }
+                if (!document.getElementById('purchaseAgainModal').classList.contains('hidden')) {
+                    closePurchaseAgainModal();
+                }
+            }
+        });
+    </script>
+    <script src="{% static 'js/inventory_dashboard.js' %}"></script>
 </body>
 </html>

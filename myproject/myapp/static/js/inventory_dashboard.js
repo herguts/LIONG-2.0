@@ -57,6 +57,8 @@ class InventorySidebar extends HTMLElement {
         icon: 'users',
         patterns: ['suppliers', 'add-supplier']
       },
+      { href: 'http://127.0.0.1:8000', label: 'Logout', icon: 'log-out', patterns: ['logout'], isLogout: true },
+
     ];
 
     const makeIconSvg = (name) => {
@@ -123,6 +125,8 @@ class InventorySidebar extends HTMLElement {
     setTimeout(() => feather.replace(), 200);
   }
 }
+
+
 
 // Add to your existing JavaScript file
 

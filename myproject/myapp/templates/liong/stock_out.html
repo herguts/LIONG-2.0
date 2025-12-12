@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <script src="https://unpkg.com/feather-icons"></script>
     <style>
         body {
             margin: 0;
@@ -41,15 +42,10 @@
         <div class="welcome-header">
             <div class="user-info">
                 <div class="user-avatar">
-                    {{ current_admin.name|slice:"0:1"|upper|default:"I" }}
+                    <i class="fa-solid fa-user"></i>
                 </div>
                 <div>
                     <h2>Stock Out Record</h2>
-                    <p>Deduct items from inventory</p>
-                    <div class="time-display" id="currentTime">
-                        <i class="fa-solid fa-clock"></i>
-                        Loading time...
-                    </div>
                 </div>
             </div>
             <div class="user-badge">
@@ -262,7 +258,7 @@
         .user-avatar {
             width: 60px;
             height: 60px;
-            background: #ff4757;
+            background: #00c853;
             border-radius: 50%;
             display: flex;
             align-items: center;

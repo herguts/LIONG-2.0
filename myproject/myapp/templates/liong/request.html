@@ -1,3 +1,4 @@
+{% load tz %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -228,8 +229,10 @@
                             <td class="req-id">#{{ req.requisition_id }}</td>
                             <td>
                                 <div class="date-cell">
-                                    <div class="date">{{ req.date_requested|date:"M d, Y" }}</div>
-                                    <div class="time">{{ req.date_requested|date:"H:i A" }}</div>
+                                {% timezone "Asia/Manila" %}
+                                    <div class="date">{{ req.date_requested|localtime|date:"M d, Y" }}</div>
+                                    <div class="time">{{ req.date_requested|localtime|date:"h:i A" }}</div>
+                                {% endtimezone %}
                                 </div>
                             </td>
                             <td>

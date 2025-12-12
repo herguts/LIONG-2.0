@@ -82,13 +82,6 @@
                 <div class="stat-desc">Successfully approved</div>
             </div>
 
-            <div class="stat-card" onclick="filterRequests('Pending Approval')">
-                <i class="fa-solid fa-clock stat-icon"></i>
-                <div class="stat-value">{{ pending_count }}</div>
-                <div class="stat-label">Pending</div>
-                <div class="stat-desc">Awaiting approval</div>
-            </div>
-
             <div class="stat-card" onclick="filterRequests('Received')">
                 <i class="fa-solid fa-box-open stat-icon"></i>
                 <div class="stat-value">{{ received_count }}</div>
@@ -97,77 +90,7 @@
             </div>
         </div>
 
-        <!-- Ready for Pickup Section -->
-        <div class="section-container" id="readySection">
-            <div class="section-header">
-                <div>
-                    <h3><i class="fa-solid fa-hand-paper"></i> Ready for Pickup</h3>
-                    <p class="section-subtitle">Requests that are ready for you to pick up from inventory</p>
-                </div>
-                <div class="section-badge">
-                    <span class="badge-count">{{ ready_count }}</span>
-                    Total
-                </div>
-            </div>
-            
-            {% if ready_requisitions %}
-                {% for req in ready_requisitions %}
-                <div class="request-card ready-card">
-                    <div class="request-header">
-                        <div class="request-title">
-                            <h4>Requisition #{{ req.requisition_id }}</h4>
-                            <span class="status-badge status-ready">
-                                <i class="fa-solid fa-hand-paper"></i> Ready for Pickup
-                            </span>
-                        </div>
-                        <div class="request-date">
-                            <i class="fa-solid fa-calendar-alt"></i>
-                            {{ req.date_requested|date:"M d, Y" }}
-                            <span class="date-separator">•</span>
-                            <i class="fa-solid fa-clock"></i>
-                            {{ req.date_requested|time:"H:i A" }}
-                        </div>
-                    </div>
-                    
-                    <!-- Items List -->
-                    <div class="request-items">
-                        <h5><i class="fa-solid fa-boxes-stacked"></i> Items to Pick Up:</h5>
-                        <div class="items-list">
-                            {% for item in req.requisitionitem_set.all %}
-                            <div class="item-line">
-                                <span class="item-name">{{ item.product.name }}</span>
-                                <span class="item-qty">{{ item.approved_qty|default:item.quantity }} {{ item.product.unit }}</span>
-                                <span class="item-tag">Reserved</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    
-                    {% if req.remarks %}
-                    <div class="request-remarks">
-                        <h6><i class="fa-solid fa-comment"></i> Remarks:</h6>
-                        <p>{{ req.remarks }}</p>
-                    </div>
-                    {% endif %}
-                    
-                    <div class="request-actions">
-                        <form method="POST" action="{% url 'mark_as_received' req.requisition_id %}" class="confirm-receipt-form">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-success">
-                                <i class="fa-solid fa-check-circle"></i> Mark as Received
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-            <div class="empty-state">
-                <i class="fa-solid fa-hand-paper"></i>
-                <p>No requests ready for pickup</p>
-                <small>Requests marked as "Ready for Pickup" will appear here.</small>
-            </div>
-            {% endif %}
-        </div>
+       
 
         <!-- All Request History -->
         <div class="section-container">

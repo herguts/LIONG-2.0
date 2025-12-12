@@ -6,7 +6,8 @@ urlpatterns = [
 
 
     path('accounts/login/', lambda request: redirect('/login/?next=' + request.GET.get('next', '/adminDashboard/')), 
-         name='accounts_login'),    path('', views.admin_login, name='admin_login'),
+         name='accounts_login'),    
+    path('', views.admin_login, name='admin_login'),
 
     path('register/', views.register, name='register'),
     path('pending-accounts/', views.pending_accounts, name='pending_accounts'),
@@ -61,6 +62,9 @@ urlpatterns = [
     path('ready-for-pickup/', views.ready_for_pickup_requisitions, name='ready_for_pickup_requisitions'),
     path('mark-ready-pickup/<int:requisition_id>/', views.mark_ready_for_pickup, name='mark_ready_for_pickup'),
     path('complete-pickup/<int:requisition_id>/', views.complete_pickup, name='complete_pickup'),
+    path('purchase-order/purchase-again/<int:po_id>/', views.purchase_again, name='purchase_again'),
+
+
 
     # Supplier Management
     path('suppliers/', views.supplier_list, name='supplier_list'),

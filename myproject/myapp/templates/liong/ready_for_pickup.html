@@ -3,427 +3,1219 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIONG | Ready for Pickup</title>
+    <title>Ready for Pickup</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #9722be, #1e1e2d);
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
 </head>
-<body class="bg-gray-50">
+<body>
 
-<inventory-sidebar></inventory-sidebar>
+    <inventory-sidebar></inventory-sidebar>
 
-<main class="main-content">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Ready for Pickup</h1>
-        <div class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border">
-            <i class="fas fa-boxes mr-1"></i>
-            {{ current_admin.role|title }} • Inventory
-        </div>
-    </div>
-
-    <!-- Messages -->
-    {% if messages %}
-    <div class="mb-6">
-        {% for message in messages %}
-        <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800 border border-yellow-200{% elif message.tags == 'info' %}bg-blue-100 text-blue-800 border border-blue-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
-                    {{ message }}
+    <main class="main-content">
+        <!-- Welcome Header -->
+        <div class="welcome-header">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i class="fa-solid fa-user"></i>
+                    {{ current_admin.username|slice:"0:1"|upper }}
                 </div>
-                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Header Info -->
-    <div class="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-        <div class="flex items-center">
-            <i class="fas fa-hand-paper text-purple-600 text-xl mr-3"></i>
-            <div>
-                <h3 class="font-semibold text-purple-800">Requisitions Ready for Pickup</h3>
-                <p class="text-purple-600 text-sm">Mark items as ready for employee pickup and complete the fulfillment process</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <!-- Total Ready -->
-        <div class="bg-white rounded-xl shadow-sm border p-4">
-            <div class="flex items-center">
-                <div class="p-2 bg-purple-100 rounded-lg">
-                    <i class="fas fa-hand-paper text-purple-600"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-gray-600">Ready for Pickup</p>
-                    <p class="text-xl font-bold text-gray-800">
-                        {% with ready_count=0 %}
-                            {% for req in requisitions %}
-                                {% if req.status == 'Ready for Pickup' %}
-                                    {% with ready_count=ready_count|add:1 %}{% endwith %}
-                                {% endif %}
-                            {% endfor %}
-                            {{ requisitions|length }}
-                        {% endwith %}
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Awaiting Pickup -->
-        <div class="bg-white rounded-xl shadow-sm border p-4">
-            <div class="flex items-center">
-                <div class="p-2 bg-blue-100 rounded-lg">
-                    <i class="fas fa-clock text-blue-600"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-gray-600">Awaiting Pickup</p>
-                    <p class="text-xl font-bold text-gray-800">
-                        {% with ready_pickup=0 %}
-                            {% for req in requisitions %}
-                                {% if req.status == 'Ready for Pickup' %}
-                                    {% with ready_pickup=ready_pickup|add:1 %}{% endwith %}
-                                {% endif %}
-                            {% endfor %}
-                            {{ ready_pickup }}
-                        {% endwith %}
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Available Stock -->
-        <div class="bg-white rounded-xl shadow-sm border p-4">
-            <div class="flex items-center">
-                <div class="p-2 bg-green-100 rounded-lg">
-                    <i class="fas fa-boxes text-green-600"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-gray-600">Approved</p>
-                    <p class="text-xl font-bold text-gray-800">
-                        {% with approved_count=0 %}
-                            {% for req in requisitions %}
-                                {% if req.status == 'Approved' %}
-                                    {% with approved_count=approved_count|add:1 %}{% endwith %}
-                                {% endif %}
-                            {% endfor %}
-                            {{ approved_count }}
-                        {% endwith %}
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Fulfilled Today -->
-        <div class="bg-white rounded-xl shadow-sm border p-4">
-            <div class="flex items-center">
-                <div class="p-2 bg-orange-100 rounded-lg">
-                    <i class="fas fa-check-circle text-orange-600"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-gray-600">Pending Purchase</p>
-                    <p class="text-xl font-bold text-gray-800">
-                        {% with pending_purchase=0 %}
-                            {% for req in requisitions %}
-                                {% if req.status == 'Pending Purchase' %}
-                                    {% with pending_purchase=pending_purchase|add:1 %}{% endwith %}
-                                {% endif %}
-                            {% endfor %}
-                            {{ pending_purchase }}
-                        {% endwith %}
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Requisitions Table -->
-    <div class="overflow-x-auto bg-white rounded-xl shadow-md p-6">
-        {% if requisitions %}
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Req. ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Requested</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Available</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for req in requisitions %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4">
-                        <span class="font-semibold">#{{ req.requisition_id }}</span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="font-medium">{{ req.employee.employee_name }}</div>
-                    </td>
-                    <td class="px-6 py-4">
-                        {{ req.date_requested|date:"M d, Y" }}
-                        <div class="text-xs text-gray-500">{{ req.date_requested|time:"H:i" }}</div>
-                    </td>
-                    <td class="px-6 py-4">
-                        {% with items=req.requisition_item_set.all %}
-                            {% for item in items|slice:":2" %}
-                                <div class="mb-1">
-                                    <span class="font-medium">{{ item.product.name }}</span>
-                                    <span class="text-sm text-gray-600">
-                                        ({{ item.approved_qty|default:item.quantity }} {{ item.product.unit }})
-                                    </span>
-                                </div>
-                            {% endfor %}
-                            {% if items.count > 2 %}
-                                <span class="text-sm text-gray-500">+{{ items.count|add:"-2" }} more</span>
-                            {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="px-3 py-1 rounded-full text-xs font-medium 
-                            {% if req.status == 'Ready for Pickup' %}bg-purple-100 text-purple-800
-                            {% elif req.status == 'Approved' %}bg-green-100 text-green-800
-                            {% elif req.status == 'Partially Approved – Pending Purchase' %}bg-yellow-100 text-yellow-800
-                            {% elif req.status == 'Pending Purchase' %}bg-orange-100 text-orange-800
-                            {% elif req.status == 'Purchased' %}bg-blue-100 text-blue-800
-                            {% elif req.status == 'Fulfilled' %}bg-gray-100 text-gray-800
-                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                            {{ req.status }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        {% with items=req.requisition_item_set.all %}
-                            {% if items %}
-                                {% with first_item=items.first %}
-                                    {% with product=first_item.product %}
-                                        {% with inv_balance=product.inventorybalance_set.first %}
-                                            {% if inv_balance %}
-                                                <span class="{% if inv_balance.quantity_unit >= first_item.approved_qty|default:first_item.quantity %}text-green-600{% else %}text-red-600{% endif %}">
-                                                    {{ inv_balance.quantity_unit|default:0 }} {{ product.unit }}
-                                                </span>
-                                                <div class="text-xs text-gray-500">
-                                                    Needed: {{ first_item.approved_qty|default:first_item.quantity }}
-                                                </div>
-                                            {% else %}
-                                                <span class="text-red-600">No stock record</span>
-                                            {% endif %}
-                                        {% endwith %}
-                                    {% endwith %}
-                                {% endwith %}
-                            {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="flex flex-col space-y-2">
-                            {% if req.status == 'Ready for Pickup' %}
-                                <!-- Complete Pickup Button -->
-                                <form method="POST" action="{% url 'complete_pickup' req.requisition_id %}">
-                                    {% csrf_token %}
-                                    <button type="submit" 
-                                            onclick="return confirm('Confirm employee has picked up requisition #{{ req.requisition_id }}?\\n\\nStock will be marked as ISSUED.')"
-                                            class="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm w-full">
-                                        <i class="fas fa-check-circle mr-1"></i> Complete Pickup
-                                    </button>
-                                </form>
-                                
-                                <!-- Cancel Pickup Button -->
-                                <form method="POST" action="{% url 'cancel_pickup' req.requisition_id %}">
-                                    {% csrf_token %}
-                                    <button onclick="openCancelModal('{{ req.requisition_id }}', '{{ req.employee.employee_name }}')"
-                                            class="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm w-full">
-                                        <i class="fas fa-times-circle mr-1"></i> Cancel Pickup
-                                    </button>
-                                </form>
-                                
-                                <div class="text-xs text-center text-gray-500 mt-1">
-                                    <i class="fas fa-info-circle mr-1"></i> Stock reserved for pickup
-                                </div>
-                                
-                            {% elif req.status == 'Approved' or req.status == 'Partially Approved – Pending Purchase' or req.status == 'Pending Purchase' or req.status == 'Purchased' %}
-                                <!-- Mark as Ready Button (Reserves Stock) -->
-                                <form method="POST" action="{% url 'mark_ready_for_pickup' req.requisition_id %}">
-                                    {% csrf_token %}
-                                    <button type="submit" 
-                                            onclick="return confirm('Mark requisition #{{ req.requisition_id }} as Ready for Pickup?\\n\\nStock will be RESERVED for employee {{ req.employee.employee_name }}.')"
-                                            class="px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm w-full">
-                                        <i class="fas fa-box mr-1"></i> Mark Ready (Reserve Stock)
-                                    </button>
-                                    <div class="text-xs text-center text-gray-500 mt-1">
-                                        Will reserve stock for employee
-                                    </div>
-                                </form>
-                            {% elif req.status == 'Fulfilled' %}
-                                <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs text-center">
-                                    <i class="fas fa-check mr-1"></i> Completed
-                                </span>
-                            {% endif %}
-                            
-                            <!-- View Details Button -->
-                            <button onclick="openModal('{{ req.requisition_id }}')"
-                                    class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm w-full">
-                                <i class="fas fa-eye mr-1"></i> View Details
-                            </button>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4">
-                        {% if req.status == 'Ready for Pickup' %}
-                            {% with stock_outs=req.stockout_set.all %}
-                                {% if stock_outs %}
-                                    {% for stock_out in stock_outs|slice:":1" %}
-                                        <span class="px-2 py-1 rounded-full text-xs font-medium 
-                                            {% if stock_out.status == 'reserved' %}bg-yellow-100 text-yellow-800
-                                            {% elif stock_out.status == 'issued' %}bg-green-100 text-green-800
-                                            {% elif stock_out.status == 'cancelled' %}bg-red-100 text-red-800
-                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                            {{ stock_out.status|title }}
-                                        </span>
-                                        <div class="text-xs text-gray-500 mt-1">
-                                            {{ stock_out.purpose|truncatechars:30 }}
-                                        </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <span class="text-gray-400 text-sm">-</span>
-                                {% endif %}
-                            {% endwith %}
-                        {% else %}
-                            <span class="text-gray-400 text-sm">-</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="text-center py-12">
-            <i class="fas fa-hand-paper text-5xl text-gray-300 mb-4"></i>
-            <p class="text-gray-500 text-lg font-medium">No requisitions ready for pickup</p>
-            <p class="text-gray-400 text-sm mt-2">Approved requisitions with available stock will appear here.</p>
-            <a href="{% url 'inventory_dashboard' %}" class="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                <i class="fas fa-arrow-left mr-1"></i> Back to Dashboard
-            </a>
-        </div>
-        {% endif %}
-        
-        {% if requisitions %}
-        <div class="mt-6 pt-4 border-t">
-            <div class="flex justify-between items-center text-sm text-gray-600">
                 <div>
-                    Showing <span class="font-medium">{{ requisitions|length }}</span> requisitions
+                    <h2>Ready for Pickup</h2>
                 </div>
-                <div class="text-sm">
+            </div>
+            <div class="admin-badge">
+                <i class="fa-solid fa-boxes"></i>
+                {{ current_admin.role|title }} • Inventory
+            </div>
+        </div>
+
+        <!-- Requisitions Table Container -->
+        <div class="form-container">
+            <div class="section-header">
+                <h3><i class="fa-solid fa-clipboard-list"></i> Requisitions</h3>
+                <div class="header-actions">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" 
+                               id="searchInput" 
+                               placeholder="Search requisitions..." 
+                               class="search-input">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            {% if requisitions %}
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th><i class="fa-solid fa-hashtag"></i> Req. ID</th>
+                            <th><i class="fa-solid fa-user"></i> Employee</th>
+                            <th><i class="fa-solid fa-calendar"></i> Date Requested</th>
+                            <th><i class="fa-solid fa-box-open"></i> Items</th>
+                            <th><i class="fa-solid fa-info-circle"></i> Status</th>
+                            <th><i class="fa-solid fa-boxes"></i> Stock Available</th>
+                            <th><i class="fa-solid fa-bolt"></i> Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requisitionsTable">
+                        {% for req in requisitions %}
+                        <tr class="requisition-row animate__animated animate__fadeIn" 
+                            data-status="{{ req.status }}">
+                            <td>
+                                <span class="req-id">#{{ req.requisition_id }}</span>
+                            </td>
+                            <td>
+                                <div class="employee-info">
+                                    <strong>{{ req.employee.employee_name }}</strong>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="date-info">
+                                    <div>{{ req.date_requested|date:"M d, Y" }}</div>
+                                    <div class="time">{{ req.date_requested|time:"H:i" }}</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="items-list">
+                                    {% with items=req.requisition_item_set.all %}
+                                        {% for item in items|slice:":2" %}
+                                            <div class="item">
+                                                <span class="item-name">{{ item.product.name }}</span>
+                                                <span class="item-qty">
+                                                    ({{ item.approved_qty|default:item.quantity }} {{ item.product.unit }})
+                                                </span>
+                                            </div>
+                                        {% endfor %}
+                                        {% if items.count > 2 %}
+                                            <div class="more-items">
+                                                +{{ items.count|add:"-2" }} more
+                                            </div>
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if req.status == 'Ready for Pickup' %}
+                                    <span class="status-badge status-ready">
+                                        <i class="fa-solid fa-hand-paper"></i> Ready for Pickup
+                                    </span>
+                                {% elif req.status == 'Approved' %}
+                                    <span class="status-badge status-approved">
+                                        <i class="fa-solid fa-check-circle"></i> Approved
+                                    </span>
+                                {% elif req.status == 'Partially Approved – Pending Purchase' %}
+                                    <span class="status-badge status-partial">
+                                        <i class="fa-solid fa-clock"></i> Partial Approval
+                                    </span>
+                                {% elif req.status == 'Pending Purchase' %}
+                                    <span class="status-badge status-pending">
+                                        <i class="fa-solid fa-shopping-cart"></i> Pending Purchase
+                                    </span>
+                                {% elif req.status == 'Fulfilled' %}
+                                    <span class="status-badge status-fulfilled">
+                                        <i class="fa-solid fa-check-circle"></i> Fulfilled
+                                    </span>
+                                {% else %}
+                                    <span class="status-badge status-other">
+                                        {{ req.status }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% with items=req.requisition_item_set.all %}
+                                    {% if items %}
+                                        {% with first_item=items.first %}
+                                            {% with product=first_item.product %}
+                                                {% with inv_balance=product.inventorybalance_set.first %}
+                                                    {% if inv_balance %}
+                                                        <div class="stock-info">
+                                                            <span class="stock-qty {% if inv_balance.quantity_unit >= first_item.approved_qty|default:first_item.quantity %}stock-available{% else %}stock-insufficient{% endif %}">
+                                                                {{ inv_balance.quantity_unit|default:0 }} {{ product.unit }}
+                                                            </span>
+                                                            <span class="stock-needed">
+                                                                Needed: {{ first_item.approved_qty|default:first_item.quantity }}
+                                                            </span>
+                                                        </div>
+                                                    {% else %}
+                                                        <span class="stock-none">No stock record</span>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% endwith %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    {% if req.status == 'Ready for Pickup' %}
+                                        <!-- Complete Pickup Button -->
+                                        <form method="POST" action="{% url 'complete_pickup' req.requisition_id %}" class="action-form">
+                                            {% csrf_token %}
+                                            <button type="submit" 
+                                                    onclick="return confirm('Confirm employee has picked up requisition #{{ req.requisition_id }}?\\n\\nStock will be marked as ISSUED.')"
+                                                    class="action-btn complete-btn">
+                                                <i class="fa-solid fa-check-circle"></i> Complete Pickup
+                                            </button>
+                                        </form>
+                                        
+                                        <!-- Cancel Pickup Button -->
+                                        <form method="POST" action="{% url 'cancel_pickup' req.requisition_id %}" class="action-form">
+                                            {% csrf_token %}
+                                            <button onclick="openCancelModal('{{ req.requisition_id }}', '{{ req.employee.employee_name }}')"
+                                                    class="action-btn cancel-btn">
+                                                <i class="fa-solid fa-times-circle"></i> Cancel Pickup
+                                            </button>
+                                        </form>
+                                        
+                                        <div class="action-note">
+                                            <i class="fa-solid fa-info-circle"></i> Stock reserved for pickup
+                                        </div>
+                                        
+                                    {% elif req.status == 'Approved' or req.status == 'Partially Approved – Pending Purchase' or req.status == 'Pending Purchase' or req.status == 'Purchased' %}
+                                        <!-- Mark as Ready Button (Reserves Stock) -->
+                                        <form method="POST" action="{% url 'mark_ready_for_pickup' req.requisition_id %}" class="action-form">
+                                            {% csrf_token %}
+                                            <button type="submit" 
+                                                    onclick="return confirm('Mark requisition #{{ req.requisition_id }} as Ready for Pickup?\\n\\nStock will be RESERVED for employee {{ req.employee.employee_name }}.')"
+                                                    class="action-btn ready-btn">
+                                                <i class="fa-solid fa-box"></i> Mark Ready
+                                            </button>
+                                            <div class="action-note">
+                                                Will reserve stock for employee
+                                            </div>
+                                        </form>
+                                    {% elif req.status == 'Fulfilled' %}
+                                        <div class="action-completed">
+                                            <i class="fa-solid fa-check"></i> Completed
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <!-- View Details Button -->
+                                    <button onclick="openModal('{{ req.requisition_id }}')"
+                                            class="action-btn view-btn">
+                                        <i class="fa-solid fa-eye"></i> View Details
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table Footer -->
+            <div class="table-footer">
+                <div class="footer-info">
+                    Showing <span class="count">{{ requisitions|length }}</span> requisitions
+                </div>
+                <div class="footer-update">
                     Last updated: {% now "M d, Y H:i" %}
                 </div>
             </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fa-solid fa-hand-paper empty-icon"></i>
+                <h4>No Requisitions Ready for Pickup</h4>
+                <p>Approved requisitions with available stock will appear here.</p>
+                <a href="{% url 'inventory_dashboard' %}" class="back-link">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
+    </main>
+
+    <!-- Modal for requisition details -->
+    <div id="reqModal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-clipboard-list"></i> Requisition Details</h3>
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="modalContent">
+                    <!-- AJAX loads content here -->
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button onclick="closeModal()" class="btn btn-secondary">
+                    Close
+                </button>
+            </div>
+        </div>
     </div>
-</main>
 
-<!-- Modal for requisition details -->
-<div id="reqModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold text-gray-800">Requisition Details</h2>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
-                <i class="fas fa-times text-xl"></i>
-            </button>
-        </div>
+    <style>
+        /* Welcome Header */
+        .welcome-header {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
 
-        <div id="modalContent">
-            <!-- AJAX loads content here -->
-        </div>
+        .welcome-header h2 {
+            margin: 0 0 10px 0;
+            color: #ffdd59;
+            font-size: 28px;
+        }
 
-        <div class="mt-6 flex justify-end">
-            <button onclick="closeModal()" 
-                class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
-                Close
-            </button>
-        </div>
-    </div>
-</div>
+        .welcome-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
 
-<script>
-function openModal(reqId) {
-    fetch(`/inventory-requisition/view/${reqId}/`)
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById("modalContent").innerHTML = html;
-            document.getElementById("reqModal").classList.remove("hidden");
-        })
-        .catch(error => {
-            console.error('Error loading modal:', error);
-            document.getElementById("modalContent").innerHTML = 
-                '<div class="text-red-500 p-4">Error loading requisition details.</div>';
-        });
-}
+        .welcome-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
 
-function closeModal() {
-    document.getElementById("reqModal").classList.add("hidden");
-    document.getElementById("modalContent").innerHTML = '';
-}
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            background: #00c853;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
 
-// Close modal when clicking outside
-document.getElementById('reqModal').addEventListener('click', function(e) {
-    if (e.target.id === 'reqModal') {
-        closeModal();
-    }
-});
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 14px;
+            width: fit-content;
+        }
 
-// Auto-remove messages after 5 seconds
-setTimeout(function() {
-    const messages = document.querySelectorAll('.p-4.rounded-lg');
-    messages.forEach(function(message) {
-        message.style.transition = 'opacity 0.5s';
-        message.style.opacity = '0';
-        setTimeout(() => message.remove(), 500);
-    });
-}, 5000);
+        .admin-badge {
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-// Initialize feather icons
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof feather !== 'undefined') {
-        feather.replace();
-    }
-});
-</script>
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
 
-<script src="{% static 'js/inventory_dashboard.js' %}"></script>
+        .stat-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
 
-<style>
-    body {
-        margin: 0;
-        font-family: 'Poppins', sans-serif;
-        background: linear-gradient(135deg, #9722be, #1e1e2d);
-        color: #000000;
-        min-height: 100vh;
-    }
-    .main-content {
-        margin-left: 250px;
-        padding: 30px;
-        min-height: 100vh;
-        box-sizing: border-box;
-    }
-    
-    @media (max-width: 768px) {
-        .main-content {
-            margin-left: 0;
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #00c853;
+            box-shadow: 0 12px 30px rgba(0, 200, 83, 0.2);
+        }
+
+        .stat-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            color: #ffdd59;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #00c853;
+        }
+
+        .stat-date {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #9c27b0;
+        }
+
+        .stat-label {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .stat-desc {
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
+        /* Messages */
+        .messages-container {
+            margin-bottom: 30px;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(10px);
+        }
+
+        .message-success {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid #00c853;
+        }
+
+        .message-error {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid #ff4757;
+        }
+
+        .message-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        .message-close:hover {
+            color: white;
+        }
+
+        /* Form Container */
+        .form-container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .form-container h3 {
+            margin: 0 0 25px 0;
+            color: #ffdd59;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Header Actions */
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            margin-left: auto;
+            align-items: center;
+        }
+
+        .search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .search-input {
+            padding: 10px 15px 10px 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            width: 200px;
+            transition: 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #00c853;
+            box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.2);
+        }
+
+        .search-input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .filter-select {
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: #00c853;
+            box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.2);
+        }
+
+        .filter-select option {
+            background: #1e1e2d;
+            color: white;
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .data-table thead {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .data-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #ffdd59;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tbody tr {
+            transition: all 0.3s;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Table Content Styles */
+        .req-id {
+            font-weight: 600;
+            color: white;
+            font-size: 14px;
+        }
+
+        .employee-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .employee-info strong {
+            font-size: 14px;
+            color: white;
+        }
+
+        .employee-info .department {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .date-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .date-info .time {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .item-name {
+            font-size: 13px;
+            color: white;
+        }
+
+        .item-qty {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .more-items {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 3px;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-ready {
+            background: rgba(156, 39, 176, 0.1);
+            border: 1px solid rgba(156, 39, 176, 0.3);
+            color: #9C27B0;
+        }
+
+        .status-approved {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid rgba(0, 200, 83, 0.3);
+            color: #00c853;
+        }
+
+        .status-partial {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #FFC107;
+        }
+
+        .status-pending {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid rgba(255, 152, 0, 0.3);
+            color: #FF9800;
+        }
+
+        .status-fulfilled {
+            background: rgba(158, 158, 158, 0.1);
+            border: 1px solid rgba(158, 158, 158, 0.3);
+            color: #9E9E9E;
+        }
+
+        .status-other {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* Stock Info */
+        .stock-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stock-qty {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .stock-available {
+            color: #00c853;
+        }
+
+        .stock-insufficient {
+            color: #ff4757;
+        }
+
+        .stock-needed {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .stock-none {
+            color: #ff4757;
+            font-size: 12px;
+        }
+
+        .stock-na {
+            color: rgba(255,255,255,0.5);
+            font-style: italic;
+            font-size: 12px;
+        }
+
+        .stock-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-reserved {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #FFC107;
+        }
+
+        .status-issued {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid rgba(0, 200, 83, 0.3);
+            color: #00c853;
+        }
+
+        .status-cancelled {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            color: #ff4757;
+        }
+
+        .stock-purpose {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 2px;
+            max-width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 150px;
+        }
+
+        .action-form {
+            margin: 0;
+        }
+
+        .action-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 12px;
+            width: 100%;
+        }
+
+        .complete-btn {
+            background: #00c853;
+            color: white;
+        }
+
+        .complete-btn:hover {
+            background: #03b34a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 200, 83, 0.3);
+        }
+
+        .cancel-btn {
+            background: #ff4757;
+            color: white;
+        }
+
+        .cancel-btn:hover {
+            background: #ff3742;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
+        }
+
+        .ready-btn {
+            background: #9C27B0;
+            color: white;
+        }
+
+        .ready-btn:hover {
+            background: #7B1FA2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(156, 39, 176, 0.3);
+        }
+
+        .view-btn {
+            background: #2196F3;
+            color: white;
+        }
+
+        .view-btn:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        .action-note {
+            font-size: 10px;
+            opacity: 0.7;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 2px;
+        }
+
+        .action-completed {
+            background: rgba(158, 158, 158, 0.1);
+            border: 1px solid rgba(158, 158, 158, 0.3);
+            color: #9E9E9E;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        /* Table Footer */
+        .table-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 20px;
+            margin-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .footer-info .count {
+            color: #00c853;
+            font-weight: 600;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-icon {
+            font-size: 60px;
+            color: rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .empty-state h4 {
+            color: #ffdd59;
+            margin: 0 0 10px 0;
+            font-size: 20px;
+        }
+
+        .empty-state p {
+            opacity: 0.7;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-link:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 20px;
         }
-    }
-    
-    table td, table th {
-        color: black !important;
-    }
-    
-    /* Custom split filter for Django template */
-   
-</style>
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 1001;
+        }
+
+        .modal-content {
+            background: rgba(139, 63, 160, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1002;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #ffdd59;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            font-size: 20px;
+            transition: 0.3s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .modal-body {
+            padding: 10px 0;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #00c853;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #03b34a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 200, 83, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255,255,255,0.9);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+            
+            .welcome-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+            }
+            
+            .welcome-header .user-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .admin-badge {
+                align-self: stretch;
+                justify-content: center;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .header-actions {
+                margin-left: 0;
+                width: 100%;
+                flex-direction: column;
+            }
+            
+            .search-input, .filter-select {
+                width: 100%;
+            }
+            
+            .data-table th,
+            .data-table td {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            .action-buttons {
+                min-width: 120px;
+            }
+            
+            .table-footer {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none;
+        }
+
+        /* Animation Classes */
+        .animate__fadeIn {
+            animation-duration: 0.5s;
+        }
+    </style>
+
+    <script>
+        // Real-time clock
+        function updateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            const timeString = now.toLocaleDateString('en-US', options);
+            const timeElement = document.getElementById('currentTime');
+            if (timeElement) {
+                timeElement.innerHTML = '<i class="fa-solid fa-clock"></i> ' + timeString;
+            }
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Search and filter functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchInput');
+            const statusFilter = document.getElementById('statusFilter');
+            const tableRows = document.querySelectorAll('.requisition-row');
+            
+            if (searchInput) {
+                searchInput.addEventListener('keyup', function() {
+                    filterTable();
+                });
+            }
+            
+            if (statusFilter) {
+                statusFilter.addEventListener('change', function() {
+                    filterTable();
+                });
+            }
+            
+            function filterTable() {
+                const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+                const filterValue = statusFilter ? statusFilter.value : 'all';
+                
+                tableRows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    const status = row.dataset.status;
+                    
+                    const matchesSearch = text.includes(searchTerm);
+                    const matchesFilter = filterValue === 'all' || status === filterValue;
+                    
+                    if (matchesSearch && matchesFilter) {
+                        row.style.display = '';
+                        row.classList.add('animate__animated', 'animate__fadeIn');
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+            
+            // Auto-remove messages after 5 seconds
+            setTimeout(function() {
+                const messages = document.querySelectorAll('.message');
+                messages.forEach(function(message) {
+                    message.style.transition = 'opacity 0.5s';
+                    message.style.opacity = '0';
+                    setTimeout(() => message.remove(), 500);
+                });
+            }, 5000);
+        });
+        
+        // Modal Functions
+        function openModal(reqId) {
+            fetch(`/inventory-requisition/view/${reqId}/`)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById("modalContent").innerHTML = html;
+                    document.getElementById("reqModal").classList.remove("hidden");
+                })
+                .catch(error => {
+                    console.error('Error loading modal:', error);
+                    document.getElementById("modalContent").innerHTML = 
+                        '<div class="error-message">Error loading requisition details.</div>';
+                });
+        }
+        
+        function closeModal() {
+            document.getElementById("reqModal").classList.add("hidden");
+            document.getElementById("modalContent").innerHTML = '';
+        }
+        
+        // Open cancel modal
+        function openCancelModal(reqId, employeeName) {
+            if (confirm(`Cancel pickup for requisition #${reqId}?\n\nThis will unreserve stock for employee ${employeeName}.`)) {
+                event.target.closest('form').submit();
+            }
+        }
+        
+        // Close modal when clicking outside
+        document.querySelector('.modal-overlay').addEventListener('click', closeModal);
+        
+        // Close modal on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+    <script src="{% static 'js/inventory_dashboard.js' %}"></script>
 </body>
 </html>

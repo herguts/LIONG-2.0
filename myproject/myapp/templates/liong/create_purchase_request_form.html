@@ -2,276 +2,784 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>LIONG | Create Purchase Request</title>
+    <meta charset="UTF-8">
+    <title>Create Purchase Request</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #9722be, #1e1e2d);
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
 </head>
-<body class="bg-gray-50">
+<body>
 
-<inventory-sidebar></inventory-sidebar>
+    <inventory-sidebar></inventory-sidebar>
 
-<main class="main-content">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Create Purchase Request</h1>
-        <a href="{% url 'inventory_approved_requisitions' %}" 
-           class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border hover:bg-gray-50">
-            <i class="fas fa-arrow-left mr-1"></i> Back to Requisitions
-        </a>
-    </div>
+    <main class="main-content">
 
-    <!-- Requisition Info -->
-    <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-        <div class="flex justify-between items-start">
-            <div>
-                <h3 class="text-lg font-bold text-gray-800">Requisition #{{ requisition.requisition_id }}</h3>
-                <p class="text-sm text-gray-600">Employee: {{ requisition.employee.employee_name }}</p>
-                <p class="text-sm text-gray-600">Date: {{ requisition.date_requested|date:"M d, Y H:i" }}</p>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+            <div class="message {% if message.tags == 'error' %}message-error{% else %}message-success{% endif %}">
+                <div class="message-content">
+                    {% if message.tags == 'error' %}
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    {% else %}
+                    <i class="fa-solid fa-circle-check"></i>
+                    {% endif %}
+                    {{ message }}
+                </div>
+                <button class="message-close" onclick="this.parentElement.style.display='none'">
+                    <i class="fa-solid fa-times"></i>
+                </button>
             </div>
-            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                {{ requisition.status }}
-            </span>
+            {% endfor %}
         </div>
-    </div>
+        {% endif %}
 
-    <!-- Purchase Request Form -->
-    <form method="POST" action="{% url 'create_purchase_request' requisition.requisition_id %}" class="bg-white rounded-xl shadow-md p-6">
-        {% csrf_token %}
-        
-        
+        <!-- Requisition Info -->
+        <div class="form-container">
+            <div class="requisition-header">
+                <div class="requisition-info">
+                    <h3>Requisition #{{ requisition.requisition_id }}</h3>
+                    <div class="requisition-details">
+                        <span class="detail-item">
+                            <i class="fa-solid fa-user"></i> {{ requisition.employee.employee_name }}
+                        </span>
+                        <span class="detail-item">
+                            <i class="fa-solid fa-calendar"></i> {{ requisition.date_requested|date:"M d, Y H:i" }}
+                        </span>
+                    </div>
+                </div>
+                <span class="status-badge status-blue">
+                    {{ requisition.status }}
+                </span>
+            </div>
+        </div>
 
-        <!-- Items to Purchase -->
-        <div class="mb-8">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                <i class="fas fa-shopping-cart mr-2"></i> Items to Purchase
-            </h3>
+        <!-- Purchase Request Form -->
+        <form method="POST" action="{% url 'create_purchase_request' requisition.requisition_id %}" class="form-container">
+            {% csrf_token %}
             
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+            <!-- Items to Purchase -->
+            <div class="section-header">
+                <h3><i class="fa-solid fa-shopping-cart"></i> Items to Purchase</h3>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Price (₱)</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Price (₱)</th>
+                            <th><i class="fa-solid fa-cube"></i> Product</th>
+                            <th><i class="fa-solid fa-weight-hanging"></i> Unit</th>
+                            <th><i class="fa-solid fa-hashtag"></i> Quantity</th>
+                            <th><i class="fa-solid fa-money-bill-wave"></i> Unit Price (₱)</th>
+                            <th><i class="fa-solid fa-calculator"></i> Total Price (₱)</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200" id="itemsTable">
+                    <tbody id="itemsTable">
                         {% for item in shortage_items %}
-                        <tr class="item-row" data-item-id="{{ item.item.id }}">
-                            <td class="px-4 py-3">
-                                <div class="font-medium">{{ item.product.name }}</div>
-                                <div class="text-xs text-gray-500">Product ID: {{ item.product.product_id }}</div>
+                        <tr class="item-row animate__animated animate__fadeIn" data-item-id="{{ item.item.id }}">
+                            <td>
+                                <div class="product-info">
+                                    <strong>{{ item.product.name }}</strong>
+                                    <span class="product-id">ID: {{ item.product.product_id }}</span>
+                                </div>
                             </td>
-                            <td class="px-4 py-3">
-                                {{ item.product.unit }}
+                            <td>
+                                <span class="unit-badge">{{ item.product.unit }}</span>
                             </td>
-                            <td class="px-4 py-3">
-                                <div class="font-bold text-blue-600">{{ item.quantity }}</div>
+                            <td>
+                                <span class="quantity-value">{{ item.quantity }}</span>
                             </td>
-                            <td class="px-4 py-3">
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₱</span>
+                            <td>
+                                <div class="price-input-group">
+                                    <span class="currency">₱</span>
                                     <input type="number" 
                                            name="price_{{ item.item.id }}"
                                            step="1"
                                            min="0"
-                                           value="0.00"
-                                           class="pl-8 pr-3 py-2 w-32 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 price-input"
+                                           value="0"
+                                           class="price-input"
                                            data-quantity="{{ item.quantity }}"
-                                           placeholder="0.00"
+                                           placeholder="0"
                                            required>
                                 </div>
                             </td>
-                            <td class="px-4 py-3">
-                                <span class="font-bold text-gray-800 total-price">₱0.00</span>
+                            <td>
+                                <span class="total-price">₱0.00</span>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
-                    <tfoot class="bg-gray-50">
-                        <tr>
-                            <td colspan="3" class="px-4 py-3 text-right font-bold">Subtotal:</td>
-                            <td class="px-4 py-3"></td>
-                            <td class="px-4 py-3">
-                                <span class="font-bold text-lg text-gray-800" id="subtotal">₱0.00</span>
+                    <tfoot>
+                        <tr class="summary-row">
+                            <td colspan="3" class="summary-label">
+                                <i class="fa-solid fa-calculator"></i> Subtotal:
                             </td>
+                            <td></td>
+                            <td class="summary-value" id="subtotal">₱0.00</td>
                         </tr>
-                        <tr>
-                            <td colspan="3" class="px-4 py-3 text-right font-bold">VAT (12%):</td>
-                            <td class="px-4 py-3"></td>
-                            <td class="px-4 py-3">
-                                <span class="font-bold text-gray-800" id="vat">₱0.00</span>
+                        <tr class="summary-row">
+                            <td colspan="3" class="summary-label">
+                                <i class="fa-solid fa-percent"></i> VAT (12%):
                             </td>
+                            <td></td>
+                            <td class="summary-value" id="vat">₱0.00</td>
                         </tr>
-                        <tr class="bg-blue-50">
-                            <td colspan="3" class="px-4 py-3 text-right font-bold text-lg">Total Estimated Cost:</td>
-                            <td class="px-4 py-3"></td>
-                            <td class="px-4 py-3">
-                                <span class="font-bold text-2xl text-blue-600" id="total-cost">₱0.00</span>
+                        <tr class="total-row">
+                            <td colspan="3" class="total-label">
+                                <i class="fa-solid fa-file-invoice-dollar"></i> Total Estimated Cost:
                             </td>
+                            <td></td>
+                            <td class="total-value" id="total-cost">₱0.00</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
-        </div>
 
-        <!-- Remarks -->
-        <div class="mb-8">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                <i class="fas fa-sticky-note mr-2"></i> Remarks & Notes
-            </h3>
-            <textarea name="remarks" 
-                      rows="4"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Add any additional notes or instructions for this purchase request..."></textarea>
-        </div>
+            <!-- Remarks -->
+            <div class="form-section">
+                <div class="section-header">
+                    <h4><i class="fa-solid fa-sticky-note"></i> Remarks & Notes</h4>
+                </div>
+                <div class="form-group">
+                    <textarea name="remarks" 
+                              rows="4"
+                              class="form-textarea"
+                              placeholder="Add any additional notes or instructions for this purchase request..."></textarea>
+                </div>
+            </div>
 
-        <!-- Form Actions -->
-        <div class="flex justify-end space-x-3 pt-6 border-t">
-            <a href="{% url 'inventory_approved_requisitions' %}"
-               class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
-                Cancel
-            </a>
-            <button type="submit" 
-                    class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-lg flex items-center">
-                <i class="fas fa-paper-plane mr-2"></i> Submit Purchase Request
-            </button>
-        </div>
-    </form>
-</main>
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <a href="{% url 'inventory_approved_requisitions' %}"
+                   class="btn btn-secondary">
+                    Cancel
+                </a>
+                <button type="submit" 
+                        class="btn btn-primary">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Purchase Request
+                </button>
+            </div>
+        </form>
+    </main>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize price calculations
-    function calculateTotals() {
-        let subtotal = 0;
-        
-        // Calculate each item's total
-        document.querySelectorAll('.price-input').forEach(input => {
-            const price = parseFloat(input.value) || 0;
-            const quantity = parseFloat(input.dataset.quantity) || 0;
-            const total = price * quantity;
-            
-            // Update item total
-            const row = input.closest('.item-row');
-            const totalElement = row.querySelector('.total-price');
-            totalElement.textContent = '₱' + total.toFixed(2);
-            
-            subtotal += total;
-        });
-        
-        // Calculate VAT (12%)
-        const vat = subtotal * 0.12;
-        const total = subtotal + vat;
-        
-        // Update summary
-        document.getElementById('subtotal').textContent = '₱' + subtotal.toFixed(2);
-        document.getElementById('vat').textContent = '₱' + vat.toFixed(2);
-        document.getElementById('total-cost').textContent = '₱' + total.toFixed(2);
-    }
-    
-    // Add event listeners to price inputs
-    document.querySelectorAll('.price-input').forEach(input => {
-        input.addEventListener('input', calculateTotals);
-        input.addEventListener('change', calculateTotals);
-    });
-    
-    // Initialize calculations
-    calculateTotals();
-    
-    // Format price inputs on blur
-    document.querySelectorAll('.price-input').forEach(input => {
-        input.addEventListener('blur', function() {
-            if (this.value) {
-                this.value = parseFloat(this.value).toFixed(2);
+    <style>
+        /* Welcome Header */
+        .welcome-header {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .welcome-header h2 {
+            margin: 0 0 10px 0;
+            color: #ffdd59;
+            font-size: 28px;
+        }
+
+        .welcome-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .welcome-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            background: #00c853;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 14px;
+            width: fit-content;
+        }
+
+        .back-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.9);
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Messages */
+        .messages-container {
+            margin-bottom: 30px;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(10px);
+        }
+
+        .message-success {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid #00c853;
+        }
+
+        .message-error {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid #ff4757;
+        }
+
+        .message-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        .message-close:hover {
+            color: white;
+        }
+
+        /* Form Container */
+        .form-container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        /* Requisition Header */
+        .requisition-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .requisition-info h3 {
+            margin: 0 0 10px 0;
+            color: #ffdd59;
+            font-size: 22px;
+        }
+
+        .requisition-details {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .detail-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255,255,255,0.8);
+            font-size: 14px;
+        }
+
+        .detail-item i {
+            color: #ffdd59;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-blue {
+            background: rgba(33, 150, 243, 0.1);
+            border: 1px solid rgba(33, 150, 243, 0.3);
+            color: #2196F3;
+        }
+
+        /* Section Header */
+        .section-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .section-header h3, .section-header h4 {
+            margin: 0;
+            color: #ffdd59;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-header h4 {
+            font-size: 18px;
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .data-table thead {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .data-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #ffdd59;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tbody tr {
+            transition: all 0.3s;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Table Content Styles */
+        .product-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-info strong {
+            font-size: 14px;
+            color: white;
+        }
+
+        .product-id {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .unit-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: rgba(255, 221, 89, 0.1);
+            border: 1px solid rgba(255, 221, 89, 0.3);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #ffdd59;
+        }
+
+        .quantity-value {
+            font-weight: 600;
+            color: #2196F3;
+            font-size: 16px;
+        }
+
+        .price-input-group {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .price-input-group .currency {
+            position: absolute;
+            left: 12px;
+            color: rgba(255,255,255,0.6);
+            font-weight: 600;
+        }
+
+        .price-input {
+            width: 120px;
+            padding: 10px 15px 10px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .price-input:focus {
+            outline: none;
+            border-color: #00c853;
+            box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.2);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .total-price {
+            font-weight: 600;
+            color: #ffdd59;
+            font-size: 14px;
+        }
+
+        /* Summary Rows */
+        .summary-row {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .summary-label {
+            font-weight: 600;
+            color: rgba(255,255,255,0.8);
+            text-align: right;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .summary-value {
+            font-weight: 600;
+            color: white;
+            font-size: 16px;
+            padding: 15px;
+        }
+
+        .total-row {
+            background: rgba(0, 200, 83, 0.1);
+        }
+
+        .total-label {
+            font-weight: 700;
+            color: #00c853;
+            text-align: right;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .total-value {
+            font-weight: 700;
+            color: #00c853;
+            font-size: 18px;
+            padding: 15px;
+        }
+
+        /* Form Sections */
+        .form-section {
+            margin-top: 30px;
+        }
+
+        .form-group {
+            margin-top: 15px;
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            transition: 0.3s;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: #00c853;
+            box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.2);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .form-textarea::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* Form Actions */
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: #00c853;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #03b34a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 200, 83, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255,255,255,0.9);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
             }
-        });
-    });
-    
-    // Auto-focus first price input
-    const firstPriceInput = document.querySelector('.price-input');
-    if (firstPriceInput) {
-        firstPriceInput.focus();
-    }
-    
-    // Handle custom payment method
-    const customPaymentInput = document.querySelector('input[name="custom_payment"]');
-    if (customPaymentInput) {
-        customPaymentInput.addEventListener('input', function() {
-            if (this.value.trim()) {
-                // Create a hidden radio button for custom payment
-                let customRadio = document.querySelector('input[name="payment_method"][value="custom"]');
-                if (!customRadio) {
-                    customRadio = document.createElement('input');
-                    customRadio.type = 'radio';
-                    customRadio.name = 'payment_method';
-                    customRadio.value = 'custom';
-                    customRadio.className = 'hidden';
-                    customRadio.checked = true;
-                    document.querySelector('form').appendChild(customRadio);
-                }
-                customRadio.checked = true;
+            
+            .welcome-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
             }
+            
+            .welcome-header .user-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .requisition-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .requisition-details {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .data-table th,
+            .data-table td {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            .price-input {
+                width: 100%;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none;
+        }
+
+        /* Animation Classes */
+        .animate__fadeIn {
+            animation-duration: 0.5s;
+        }
+    </style>
+
+    <script>
+        // Real-time clock
+        function updateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            const timeString = now.toLocaleDateString('en-US', options);
+            const timeElement = document.getElementById('currentTime');
+            if (timeElement) {
+                timeElement.innerHTML = '<i class="fa-solid fa-clock"></i> ' + timeString;
+            }
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Price calculations
+        document.addEventListener('DOMContentLoaded', function() {
+            function calculateTotals() {
+                let subtotal = 0;
+                
+                // Calculate each item's total
+                document.querySelectorAll('.price-input').forEach(input => {
+                    const price = parseFloat(input.value) || 0;
+                    const quantity = parseFloat(input.dataset.quantity) || 0;
+                    const total = price * quantity;
+                    
+                    // Update item total
+                    const row = input.closest('.item-row');
+                    const totalElement = row.querySelector('.total-price');
+                    totalElement.textContent = '₱' + total.toFixed(2);
+                    
+                    subtotal += total;
+                });
+                
+                // Calculate VAT (12%)
+                const vat = subtotal * 0.12;
+                const total = subtotal + vat;
+                
+                // Update summary
+                document.getElementById('subtotal').textContent = '₱' + subtotal.toFixed(2);
+                document.getElementById('vat').textContent = '₱' + vat.toFixed(2);
+                document.getElementById('total-cost').textContent = '₱' + total.toFixed(2);
+            }
+            
+            // Add event listeners to price inputs
+            document.querySelectorAll('.price-input').forEach(input => {
+                input.addEventListener('input', calculateTotals);
+                input.addEventListener('change', calculateTotals);
+            });
+            
+            // Initialize calculations
+            calculateTotals();
+            
+            // Format price inputs on blur
+            document.querySelectorAll('.price-input').forEach(input => {
+                input.addEventListener('blur', function() {
+                    if (this.value) {
+                        this.value = parseFloat(this.value).toFixed(2);
+                        calculateTotals();
+                    }
+                });
+            });
+            
+            // Auto-focus first price input
+            const firstPriceInput = document.querySelector('.price-input');
+            if (firstPriceInput) {
+                setTimeout(() => firstPriceInput.focus(), 100);
+            }
+            
+            // Auto-remove messages after 5 seconds
+            setTimeout(function() {
+                const messages = document.querySelectorAll('.message');
+                messages.forEach(function(message) {
+                    message.style.transition = 'opacity 0.5s';
+                    message.style.opacity = '0';
+                    setTimeout(() => message.remove(), 500);
+                });
+            }, 5000);
         });
-    }
-});
-</script>
-
-<style>
-.main-content {
-    margin-left: 250px;
-    padding: 30px;
-    min-height: 100vh;
-    box-sizing: border-box;
-}
-
-@media (max-width: 768px) {
-    .main-content {
-        margin-left: 0;
-        padding: 20px;
-    }
-}
-
-.payment-option input:checked + div {
-    border-width: 2px;
-}
-
-.price-input {
-    transition: all 0.2s;
-}
-
-.price-input:focus {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.item-row:hover {
-    background-color: #f9fafb;
-}
-
-/* Custom scrollbar for table */
-.overflow-x-auto::-webkit-scrollbar {
-    height: 8px;
-}
-
-.overflow-x-auto::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.overflow-x-auto::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
-
-.overflow-x-auto::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-</style>
-
-<script src="{% static 'js/inventory_dashboard.js' %}"></script>
+    </script>
+    <script src="{% static 'js/inventory_dashboard.js' %}"></script>
 </body>
 </html>

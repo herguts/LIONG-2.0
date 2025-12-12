@@ -774,6 +774,16 @@ def request(request):
                                 messages.error(request, f"Product with ID {pid} not found.")
                                 return redirect('request')
                 
+                for new_item in new_items_data:
+                    # Check duplicate name (case-insensitive)
+                    if Products.objects.filter(name__iexact=new_item['name']).exists():
+                        messages.warning(
+                            request, 
+                            f'Product "{new_item["name"]}" already exists. It was not added.'
+                        )
+                        # rollback everything:
+                        raise Exception("Duplicate product detected")
+                    
                 # Process new items (not in inventory)
                 for new_item in new_items_data:
                     # Create new product in products table
@@ -1353,13 +1363,13 @@ def balance(request):
     out_of_stock_count = 0
     
     for balance in balances:
-        if balance.quantity_unit <= 0:
+        qty = balance.quantity_unit or 0  # handle None values
+
+        if qty <= 0:
             out_of_stock_count += 1
-        elif balance.min_stock > 0 and balance.quantity_unit < balance.min_stock:
+        elif 1 <= qty <= 10:
             low_stock_count += 1
-        elif balance.min_stock > 0 and balance.quantity_unit >= balance.min_stock:
-            in_stock_count += 1
-        else:
+        else:  # qty > 10
             in_stock_count += 1
     
     # Add deficit calculation to each balance
@@ -1385,7 +1395,17 @@ def stock_in_view(request):
     if request.session.get('admin_role') != 'inventory_admin':
         return redirect('admin_login')
 
+    # Get admin info
+    admin = Admin.objects.get(pk=request.session.get('acc_id'))
+    
+    # Get products for dropdown - assuming you want all products
     products = Products.objects.all()
+    
+    # Get inventory balances for the select dropdown
+    balance = InventoryBalance.objects.select_related('product').all()
+    
+    # Get recent stock ins (last 10 entries)
+    recent_stock_in = StockIn.objects.select_related('product', 'acc').order_by('-stock_in_id')[:10]
 
     if request.method == 'POST':
         product_id = request.POST.get('product')
@@ -1394,7 +1414,7 @@ def stock_in_view(request):
         quantity_klg = request.POST.get('quantity_klg') or 0
         date_in = request.POST.get('date_in') or date.today()
 
-        # Validate - removed unit check since it comes from product
+        # Validate
         if not product_id:
             messages.error(request, "Please select a product.")
             return redirect('stock_in')
@@ -1406,12 +1426,10 @@ def stock_in_view(request):
             messages.error(request, "Product not found.")
             return redirect('stock_in')
 
-        admin = Admin.objects.get(pk=request.session.get('acc_id'))
-
         # Create StockIn record
         StockIn.objects.create(
             product=product,
-            unit=unit,  # Use the unit from the product
+            unit=unit,
             quantity=float(quantity),
             quantity_meters=float(quantity_meters),
             quantity_klg=float(quantity_klg),
@@ -1420,27 +1438,31 @@ def stock_in_view(request):
         )
 
         # Update InventoryBalance
-        balance, created = InventoryBalance.objects.get_or_create(
+        balance_obj, created = InventoryBalance.objects.get_or_create(
             product=product,
             defaults={
-                'unit': unit,  # Use the unit from the product
+                'unit': unit,
                 'quantity_unit': 0,
                 'quantity_meters': 0,
                 'quantity_klg': 0
             }
         )
 
-        balance.quantity_unit = (balance.quantity_unit or Decimal('0')) + Decimal(str(quantity))
-        balance.quantity_meters = (balance.quantity_meters or Decimal('0')) + Decimal(str(quantity_meters))
-        balance.quantity_klg = (balance.quantity_klg or Decimal('0')) + Decimal(str(quantity_klg))
-
-        balance.last_updated = timezone.now()
-        balance.save()
+        balance_obj.quantity_unit = (balance_obj.quantity_unit or Decimal('0')) + Decimal(str(quantity))
+        balance_obj.quantity_meters = (balance_obj.quantity_meters or Decimal('0')) + Decimal(str(quantity_meters))
+        balance_obj.quantity_klg = (balance_obj.quantity_klg or Decimal('0')) + Decimal(str(quantity_klg))
+        balance_obj.last_updated = timezone.now()
+        balance_obj.save()
 
         messages.success(request, f"{quantity} {unit} added to {product.name}.")
         return redirect('stock_in')
 
-    return render(request, 'liong/stock_in.html', {'products': products})   
+    return render(request, "liong/stock_in.html", {
+        "products": balance,  # use balances for <select> options
+        "products_json": products,  # for JS if needed
+        "recent_stock_in": recent_stock_in,
+        "admin": admin
+    })
 
 
 # -------------------------
@@ -1453,6 +1475,10 @@ def add_product(request):
 
         if not item_name or not unit:
             messages.error(request, "Please enter product name and select unit.")
+            return redirect('stock_in')
+        
+        if Products.objects.filter(name=item_name).exists():
+            messages.error(request, f'Product "{item_name}" with unit "{unit}" already exists!')
             return redirect('stock_in')
 
         Products.objects.create(name=item_name, unit=unit)
@@ -1546,16 +1572,6 @@ def stock_out_view(request):
         "current_admin": current_admin  # Pass admin object to template if needed
     })
 
-
-# -------------------------
-# BALANCE
-# -------------------------
-def balance(request):
-    if request.session.get('admin_role') != 'inventory_admin':
-        return redirect('admin_login')
-
-    balances = InventoryBalance.objects.select_related('product').all()
-    return render(request, 'liong/balance.html', {'balances': balances})
 
 
 # -------------------------
@@ -1826,6 +1842,303 @@ def approved_purchase_requests(request):
     })
 
 
+
+
+@transaction.atomic  # Ensures database operations are atomic
+def purchase_again(request, po_id):
+    """Create a new purchase order from an existing partially received PO and send email"""
+    try:
+        print(f"=== purchase_again view called ===")
+        print(f"PO ID: {po_id}")
+        print(f"Request method: {request.method}")
+        
+        # Check if user is logged in
+        if 'acc_id' not in request.session:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Please log in first.'
+                })
+            messages.error(request, "Please log in first.")
+            return redirect('admin_login')
+        
+        # Get current admin
+        current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+        
+        # Check admin role
+        if current_admin.role not in ['inventory_admin', 'super_admin']:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Only inventory can create purchase orders.'
+                })
+            messages.error(request, "Only inventory can create purchase orders.")
+            return redirect('purchase_orders_list')
+        
+        # Get the original PO
+        original_po = get_object_or_404(PurchaseOrder, pk=po_id)
+        print(f"Found PO: {original_po.po_number}, Status: {original_po.status}")
+        
+        # Check if status is partially_received
+        if original_po.status != 'partially_received':
+            error_msg = 'Purchase Again is only available for partially received orders.'
+            print(f"Error: {error_msg}")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': error_msg
+                })
+            messages.error(request, error_msg)
+            return redirect('purchase_orders_list')
+        
+        # Handle GET request (opening modal)
+        if request.method == 'GET':
+            print("Handling GET request for modal data")
+            # Return JSON data for modal
+            return JsonResponse({
+                'success': True,
+                'po_number': original_po.po_number,
+                'supplier_id': str(original_po.supplier.supplier_id),
+                'supplier_name': original_po.supplier.name,
+                'payment_method': original_po.payment_method if hasattr(original_po, 'payment_method') else 'cash_on_delivery'
+            })
+        
+        # Handle POST request (submitting form)
+        elif request.method == 'POST':
+            print("Handling POST request to create new PO")
+            
+            # Get form data
+            supplier_id = request.POST.get('supplier')
+            delivery_date = request.POST.get('delivery_date')
+            payment_method = request.POST.get('payment_method', 'cash_on_delivery')
+            custom_payment = request.POST.get('custom_payment', '')
+            notes = request.POST.get('notes', f"Re-order from {original_po.po_number}")
+            
+            print(f"Form data - Supplier: {supplier_id}, Delivery: {delivery_date}, Payment: {payment_method}")
+            
+            if not supplier_id:
+                error_msg = "Please select a supplier."
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'error': error_msg
+                    })
+                messages.error(request, error_msg)
+                return redirect('purchase_orders_list')
+            
+            # Get supplier
+            supplier = get_object_or_404(Supplier, pk=supplier_id)
+            
+            # Determine payment terms based on selection
+            payment_terms = "Net 30"  # Default
+            
+            if payment_method == 'cash_on_delivery':
+                payment_terms = "Cash on Delivery"
+            elif payment_method == 'bank_transfer':
+                payment_terms = "Bank Transfer"
+            elif payment_method == 'gcash':
+                payment_terms = "GCash"
+            elif payment_method == 'check':
+                payment_terms = "Check Payment"
+            elif payment_method == 'credit':
+                payment_terms = "Credit - Net 30 Days"
+            elif custom_payment:
+                payment_terms = custom_payment
+            
+            # Generate new PO number
+            last_po = PurchaseOrder.objects.order_by('-created_date').first()
+            if last_po and last_po.po_number.startswith('PO-'):
+                try:
+                    last_number = int(last_po.po_number.split('-')[1])
+                    new_number = f"PO-{last_number + 1:04d}"
+                except:
+                    new_number = f"PO-{PurchaseOrder.objects.count() + 1:04d}"
+            else:
+                new_number = f"PO-{PurchaseOrder.objects.count() + 1:04d}"
+            
+            print(f"Creating new PO with number: {new_number}")
+            
+            # Create a new PO
+            new_po = PurchaseOrder.objects.create(
+                po_number=new_number,
+                supplier=supplier,
+                request=original_po.request,
+                total_amount=original_po.total_amount,
+                status='draft',
+                payment_terms=payment_terms,
+                delivery_date=delivery_date if delivery_date else None,
+                notes=notes,
+                created_by=current_admin,
+                created_date=timezone.now()
+            )
+            
+            print(f"New PO created: {new_po.po_id}")
+            
+            # Copy PO items from original - FIXED: Use 'po' field instead of 'purchase_order'
+            original_items = PurchaseOrderItem.objects.filter(po=original_po)  # Changed from purchase_order to po
+            print(f"Copying {original_items.count()} items from original PO")
+            
+            for item in original_items:
+                PurchaseOrderItem.objects.create(
+                    po=new_po,  # Changed from purchase_order to po
+                    product=item.product,
+                    quantity=item.quantity,
+                    unit_price=item.unit_price,
+                    total_price=item.total_price
+                )
+            
+            # Also update the requisition status if it exists
+            if new_po.request and new_po.request.requisition:
+                new_po.request.requisition.status = 'Pending Purchase'
+                new_po.request.requisition.save()
+            
+            # ====================================================
+            # AUTOMATICALLY SEND EMAIL TO SUPPLIER
+            # ====================================================
+            if supplier.email:
+                try:
+                    # Get all items for the PO - FIXED: Use 'po' field
+                    items = new_po.purchaseorderitem_set.all()
+                    
+                    # Prepare email context
+                    context = {
+                        'company_name': getattr(settings, 'COMPANY_NAME', 'Your Company'),
+                        'po': new_po,
+                        'supplier': supplier,
+                        'items': items,
+                        'sent_by': current_admin,
+                        'original_po_number': original_po.po_number,  # Include original PO number
+                    }
+                    
+                    # Render HTML email
+                    html_message = render_to_string('liong/emails/purchase_order_email2.html', context)
+                    plain_message = strip_tags(html_message)
+                    
+                    # Send email to supplier
+                    send_mail(
+                        subject=f"Purchase Order #{new_po.po_number} - {getattr(settings, 'COMPANY_NAME', 'Your Company')}",
+                        message=plain_message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[supplier.email],
+                        html_message=html_message,
+                        fail_silently=False,
+                    )
+                    
+                    # Also send a copy to the inventory admin if they have email
+                    if current_admin.email:
+                        try:
+                            send_mail(
+                                subject=f"PO #{new_po.po_number} Copy - Sent to {supplier.name}",
+                                message=f"Purchase Order #{new_po.po_number} (re-order from {original_po.po_number}) has been sent to {supplier.name} ({supplier.email})",
+                                from_email=settings.DEFAULT_FROM_EMAIL,
+                                recipient_list=[current_admin.email],
+                                fail_silently=True,
+                            )
+                        except Exception as admin_email_error:
+                            print(f"Failed to send admin copy: {admin_email_error}")
+                    
+                    # Update PO to track email was sent
+                    if hasattr(new_po, 'email_sent'):
+                        new_po.email_sent = True
+                        new_po.email_sent_date = timezone.now()
+                        new_po.email_sent_to = supplier.email
+                        new_po.save()
+                    
+
+                    
+                    # Return success response
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': True,
+                            'new_po_id': str(new_po.po_id),
+                            'new_po_number': new_po.po_number,
+                        })
+                    
+                    messages.success(request)
+                    return redirect('purchase_order_list', po_id=new_po.po_id)
+                    
+                except Exception as email_error:
+                    print(f"Email sending error: {email_error}")
+                    # If email fails, still show success for PO creation but warn about email
+                    new_po.save()
+                    warning_msg = f"✅ Purchase Order #{new_po.po_number} created successfully, but email could not be sent to supplier. Error: {str(email_error)[:100]}..."
+                    
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': True,
+                            'new_po_id': str(new_po.po_id),
+                            'new_po_number': new_po.po_number,
+                            'warning': warning_msg
+                        })
+                    
+                    messages.warning(request, warning_msg)
+                    return redirect('purchase_order_list', po_id=new_po.po_id)
+            else:
+                # Supplier doesn't have email
+                info_msg = f"✅ Purchase Order #{new_po.po_number} created successfully! Note: Supplier does not have an email address."
+                
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'new_po_id': str(new_po.po_id),
+                        'new_po_number': new_po.po_number,
+                        'message': info_msg
+                    })
+                
+                messages.success(request, info_msg)
+                return redirect('purchase_order_list', po_id=new_po.po_id)
+        
+        else:
+            # Invalid method
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid request method.'
+                })
+            return redirect('purchase_orders_list')
+            
+    except Exception as e:
+        print(f"=== ERROR in purchase_again ===")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
+        import traceback
+        print(f"Traceback:\n{traceback.format_exc()}")
+        
+        error_msg = f'Error creating purchase order: {str(e)}'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': error_msg
+            })
+        messages.error(request, error_msg)
+        return redirect('purchase_orders_list')
+
+
+# In your views.py, update the view that renders the purchase orders page
+def purchase_orders_list(request):
+    if 'acc_id' not in request.session:
+        messages.error(request, "Please log in first.")
+        return redirect('admin_login')
+
+    current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    
+    # Get all purchase orders
+    purchase_orders = PurchaseOrder.objects.all().order_by('-created_date')
+    
+    # GET ALL SUPPLIERS - Add this
+    suppliers = Supplier.objects.all().order_by('name')
+    
+    context = {
+        'purchase_orders': purchase_orders,
+        'current_admin': current_admin,
+        'today': timezone.now().date(),
+        'suppliers': suppliers,  # ADD THIS LINE
+    }
+    
+    return render(request, 'liong/purchase_orders.html', context)
+
+
+
 @transaction.atomic
 def create_purchase_order(request, request_id):
     """Inventory creates purchase order from approved request"""
@@ -2011,21 +2324,26 @@ def create_purchase_order(request, request_id):
 # PURCHASE ORDER MANAGEMENT
 # ============================================
 def purchase_orders_list(request):
-    """List all purchase orders"""
     if 'acc_id' not in request.session:
+        messages.error(request, "Please log in first.")
         return redirect('admin_login')
 
     current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
     
-    purchase_orders = PurchaseOrder.objects.select_related(
-        'supplier', 'created_by', 'request__requisition'
-    ).prefetch_related('purchaseorderitem_set').order_by('-created_date')
-
-    return render(request, 'liong/purchase_orders.html', {
+    # Get all purchase orders
+    purchase_orders = PurchaseOrder.objects.all().order_by('-created_date')
+    
+    # GET ALL SUPPLIERS - Add this
+    suppliers = Supplier.objects.all().order_by('name')
+    
+    context = {
         'purchase_orders': purchase_orders,
-        'current_admin': current_admin
-    })
-
+        'current_admin': current_admin,
+        'today': timezone.now().date(),
+        'suppliers': suppliers,  # ADD THIS LINE
+    }
+    
+    return render(request, 'liong/purchase_orders.html', context)
 
 @require_POST
 @transaction.atomic
@@ -2068,8 +2386,58 @@ def send_purchase_order(request, po_id):
 # RECEIVING & QUALITY CHECK
 # ============================================
 
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
+def send_rejection_notification_email(receiving, disposition, admin):
+    """Send HTML email to supplier about rejected items using template"""
+    try:
+        supplier = receiving.po.supplier
+        if not supplier.email:
+            return False, "Supplier has no email address"
+        
+        # Get all rejected items for this receiving
+        rejected_items = RejectedItem.objects.filter(receiving=receiving, is_resolved=False)
+        total_rejected = sum(item.quantity for item in rejected_items)
+        
+        if total_rejected == 0:
+            return False, "No rejected items found"
+        
+        # Prepare email context
+        context = {
+            'company_name': settings.COMPANY_NAME,
+            'receiving': receiving,
+            'po': receiving.po,
+            'supplier': supplier,
+            'rejected_items': rejected_items,
+            'total_rejected_qty': total_rejected,
+            'total_rejected_value': sum(item.quantity * item.po_item.unit_price for item in rejected_items),
+            'rejection_disposition': disposition,
+            'sent_by': admin,
+            'date': timezone.now(),
+        }
+        
+        # Render HTML email from template
+        html_message = render_to_string('liong/emails/rejection_notification_email.html', context)
+        plain_message = strip_tags(html_message)  # Create plain text version
+        
+        # Send email with HTML content
+        send_mail(
+            subject=f"Quality Check Results - Rejected Items from PO #{receiving.po.po_number}",
+            message=plain_message,  # Plain text version
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[supplier.email],
+            html_message=html_message,  # HTML version
+            fail_silently=False,
+        )
+        
+        return True, "Rejection notification email sent successfully"
+        
+    except Exception as e:
+        return False, f"Failed to send email: {str(e)}"
+    
 def quality_check_receiving(request, receiving_id):
-    """Step 2: Quality check and rejection handling"""
+    """Step 2: Quality check - ONLY AFTER APPROVAL DO ITEMS ENTER INVENTORY"""
     if 'acc_id' not in request.session:
         return redirect('admin_login')
 
@@ -2089,65 +2457,96 @@ def quality_check_receiving(request, receiving_id):
         'receiveditem_set__po_item__product'
     ), receiving_id=receiving_id)
 
+    if receiving.overall_status != 'pending_qc':
+        messages.error(request, 
+            f"This receiving has already been processed. "
+            f"Status: {receiving.get_overall_status_display()}"
+        )
+        return redirect('purchase_orders_list')
+
+    # =========== POST REQUEST (form submission) ===========
     if request.method == 'POST':
         action = request.POST.get('action')
+        
+        if action != 'complete_qc':
+            messages.error(request, "Invalid action.")
+            return redirect('quality_check_receiving', receiving_id=receiving_id)
+        
         disposition = request.POST.get('rejection_disposition', 'return')
         
         try:
             with transaction.atomic():
-                # Create quality check record
-                quality_check = QualityCheck.objects.create(
-                    receiving=receiving,
-                    checker=current_admin,
-                    overall_status='pending',
-                    notes=request.POST.get('quality_notes', ''),
-                    rejection_disposition=disposition
-                )
-                
                 has_rejections = False
-                all_accepted = True
                 total_accepted = Decimal('0')
                 total_rejected = Decimal('0')
+                qc_errors = []
                 
-                # Process quality check for each item
                 for received_item in receiving.receiveditem_set.all():
                     accepted_qty_str = request.POST.get(f'accepted_qty_{received_item.received_item_id}', '0')
                     accepted_qty = Decimal(accepted_qty_str) if accepted_qty_str else Decimal('0')
                     
+                    if accepted_qty < 0:
+                        qc_errors.append(f"Accepted quantity for {received_item.po_item.product.name} cannot be negative.")
+                    
                     if accepted_qty > received_item.quantity_received:
-                        accepted_qty = received_item.quantity_received
+                        qc_errors.append(
+                            f"Accepted quantity for {received_item.po_item.product.name} "
+                            f"({accepted_qty}) exceeds physically received quantity ({received_item.quantity_received})."
+                        )
                     
                     rejected_qty = received_item.quantity_received - accepted_qty
                     
-                    # Update received item
+                    if rejected_qty > 0:
+                        rejection_reason = request.POST.get(
+                            f'rejection_reason_{received_item.received_item_id}', ''
+                        ).strip()
+                        
+                        if not rejection_reason:
+                            qc_errors.append(f"Rejection reason required for {received_item.po_item.product.name}")
+                        
+                        has_rejections = True
+                        total_rejected += rejected_qty
+                    
+                    total_accepted += accepted_qty
+                
+                if qc_errors:
+                    raise ValueError("\n".join(qc_errors))
+                
+                quality_check_data = {
+                    'receiving': receiving,
+                    'checker': current_admin,
+                    'overall_status': 'accepted' if not has_rejections else 'rejected',
+                    'notes': request.POST.get('quality_notes', '').strip(),
+                    'rejection_disposition': disposition,
+                }
+                
+                quality_check = QualityCheck.objects.create(**quality_check_data)
+                
+                for received_item in receiving.receiveditem_set.all():
+                    accepted_qty_str = request.POST.get(f'accepted_qty_{received_item.received_item_id}', '0')
+                    accepted_qty = Decimal(accepted_qty_str) if accepted_qty_str else Decimal('0')
+                    rejected_qty = received_item.quantity_received - accepted_qty
+                    
                     received_item.quantity_accepted = accepted_qty
                     received_item.quantity_rejected = rejected_qty
                     received_item.quality_checker = current_admin
                     received_item.quality_check_date = timezone.now()
                     
                     if rejected_qty > 0:
-                        received_item.rejection_reason = request.POST.get(f'rejection_reason_{received_item.received_item_id}', '')
-                        received_item.rejection_details = request.POST.get(f'rejection_details_{received_item.received_item_id}', '')
-                        has_rejections = True
-                        all_accepted = False
-                        total_rejected += rejected_qty
+                        rejection_reason = request.POST.get(
+                            f'rejection_reason_{received_item.received_item_id}', ''
+                        ).strip()
+                        if hasattr(received_item, 'rejection_reason'):
+                            received_item.rejection_reason = rejection_reason
+                        
+                        rejection_details = request.POST.get(
+                            f'rejection_details_{received_item.received_item_id}', ''
+                        ).strip()
+                        if hasattr(received_item, 'rejection_details'):
+                            received_item.rejection_details = rejection_details
                     
-                    total_accepted += accepted_qty
                     received_item.save()
                     
-                    # Create rejected item record if there are rejections
-                    if rejected_qty > 0:
-                        RejectedItem.objects.create(
-                            receiving=receiving,
-                            po_item=received_item.po_item,
-                            quantity=rejected_qty,
-                            reason=received_item.rejection_reason or 'other',
-                            details=received_item.rejection_details or '',
-                            disposition=disposition,
-                            is_resolved=False
-                        )
-                    
-                    # Update PO item quality status
                     po_item = received_item.po_item
                     if rejected_qty > 0:
                         if accepted_qty > 0:
@@ -2157,67 +2556,115 @@ def quality_check_receiving(request, receiving_id):
                     else:
                         po_item.quality_status = 'passed'
                     po_item.save()
+                    
+                    if rejected_qty > 0:
+                        rejected_item_data = {
+                            'receiving': receiving,
+                            'po_item': received_item.po_item,
+                            'quantity': rejected_qty,
+                            'reason': rejection_reason if rejected_qty > 0 else '',
+                            'disposition': disposition,
+                            'is_resolved': False,
+                        }
+                        
+                        RejectedItem.objects.create(**rejected_item_data)
                 
-                # Update quality check overall status
-                if has_rejections:
-                    quality_check.overall_status = 'rejected'
-                    # FIXED: Use 'complete' instead of 'with_rejections' since it's not in choices
-                    receiving.overall_status = 'complete'
+                receiving.overall_status = 'complete'
+                if hasattr(receiving, 'quality_check_completed'):
+                    receiving.quality_check_completed = timezone.now()
+                
+                receiving.save()
+                
+                if total_accepted > 0:
+                    success, message = add_accepted_items_to_inventory(receiving, current_admin)
+                    if not success:
+                        messages.warning(request, f"QC completed but inventory update had issues: {message}")
                 else:
-                    quality_check.overall_status = 'accepted'
-                    receiving.overall_status = 'complete'
+                    messages.warning(request, 
+                        f"⚠️ Quality check completed but NO items were accepted. "
+                        f"All {total_rejected} units were rejected."
+                    )
                 
-                quality_check.save()
+                # =========== EMAIL SENDING GOES HERE ===========
+                if has_rejections and total_rejected > 0:
+                    handle_rejected_items_disposition(receiving, disposition, current_admin)
+                    
+                    # Send rejection notification email
+                    email_success, email_message = send_rejection_notification_email(
+                        receiving, 
+                        disposition,
+                        current_admin
+                    )
+                    
+                    if email_success:
+                        messages.info(request, f"📧 Rejection notification sent to supplier.")
+                    else:
+                        messages.warning(request, f"⚠️ Rejection notification email failed: {email_message}")
                 
-                # Check if PO is fully received
-                po_fully_received = all(
-                    item.received_quantity >= item.quantity 
-                    for item in receiving.po.purchaseorderitem_set.all()
+                po_items = receiving.po.purchaseorderitem_set.all()
+                all_items_qc_completed = all(
+                    item.received_quantity > 0 and item.quality_status in ['passed', 'partial', 'failed']
+                    for item in po_items
                 )
                 
-                # Update PO status
-                if po_fully_received:
-                    if has_rejections:
-                        receiving.po.status = 'partially_received'
-                    else:
+                old_po_status = receiving.po.status
+                
+                if all_items_qc_completed:
+                    fully_received_and_passed = all(
+                        item.received_quantity >= item.quantity and item.quality_status == 'passed'
+                        for item in po_items
+                    )
+                    
+                    if fully_received_and_passed:
                         receiving.po.status = 'received'
                         receiving.po.completed_date = timezone.now()
+                    else:
+                        receiving.po.status = 'partially_received'
                 else:
                     receiving.po.status = 'partially_received'
                 
-                receiving.save()
                 receiving.po.save()
                 
-                # Stock in accepted items
-                if total_accepted > 0:
-                    stock_in_accepted_items(receiving, current_admin)
-                
-                # Handle rejected items based on disposition
-                if has_rejections:
-                    handle_rejected_items_disposition(receiving, disposition, current_admin)
-                
-                # Create history
                 PurchaseOrderHistory.objects.create(
                     po=receiving.po,
-                    old_status='partially_received',
+                    old_status=old_po_status,
                     new_status=receiving.po.status,
                     changed_by=current_admin,
-                    notes=f"Quality check completed. Accepted: {total_accepted} units, Rejected: {total_rejected} units. Receiving #{receiving.receiving_number}."
+                    notes=f"✅ Quality check COMPLETED for Receiving #{receiving.receiving_number}. "
+                          f"✅ Accepted to inventory: {total_accepted} units. "
+                          f"❌ Rejected: {total_rejected} units. "
+                          f"Disposition: {disposition}."
                 )
             
-            if has_rejections:
-                messages.warning(request, f"Quality check completed with rejections. {total_rejected} units were rejected.")
+            if total_accepted > 0:
+                if has_rejections:
+                    messages.success(request, 
+                        f"✅ Quality check completed! "
+                        f"✅ {total_accepted} units ACCEPTED and ADDED TO INVENTORY. "
+                        f"❌ {total_rejected} units rejected ({disposition})."
+                    )
+                else:
+                    messages.success(request, 
+                        f"✅ Quality check PASSED! "
+                        f"✅ All {total_accepted} units ACCEPTED and ADDED TO INVENTORY."
+                    )
             else:
-                messages.success(request, f"Quality check completed. All {total_accepted} units accepted.")
+                messages.warning(request, 
+                    f"⚠️ Quality check completed but NO items accepted to inventory. "
+                    f"All {total_rejected} units were rejected ({disposition})."
+                )
             
             return redirect('purchase_orders_list')
             
+        except ValueError as e:
+            messages.error(request, f"❌ Quality check validation failed: {str(e)}")
+            return redirect('quality_check_receiving', receiving_id=receiving_id)
         except Exception as e:
-            messages.error(request, f"Error during quality check: {str(e)}")
-            import traceback
-            traceback.print_exc()  # This will print the full traceback to console
+            messages.error(request, f"❌ Error during quality check: {str(e)}")
             return redirect('quality_check_receiving', receiving_id=receiving_id)
 
+    # =========== GET REQUEST (just showing the form) ===========
+    # For GET requests, we don't send emails or check for rejections
     return render(request, 'liong/quality_check_receiving.html', {
         'receiving': receiving,
         'current_admin': current_admin
@@ -2225,7 +2672,7 @@ def quality_check_receiving(request, receiving_id):
 
 
 def receive_purchase_order(request, po_id):
-    """Step 1: Initial receiving of goods"""
+    """Step 1: Initial receiving of goods - NO INVENTORY UPDATE HERE"""
     if 'acc_id' not in request.session:
         return redirect('admin_login')
 
@@ -2248,89 +2695,123 @@ def receive_purchase_order(request, po_id):
     if request.method == 'POST':
         action = request.POST.get('action')
         
-        # Check if this is a valid action
         if action not in ['receive_partial', 'receive_complete']:
             messages.error(request, "Invalid action.")
             return redirect('receive_purchase_order', po_id=po_id)
         
+        invoice_number = request.POST.get('invoice_number', '').strip()
+        if not invoice_number:
+            messages.error(request, "Invoice number is required.")
+            return redirect('receive_purchase_order', po_id=po_id)
+        
+        has_received_items = False
+        received_items_data = []
+        total_physically_received = Decimal('0')
+        
+        for item in purchase_order.purchaseorderitem_set.all():
+            received_qty_str = request.POST.get(f'received_qty_{item.po_item_id}', '0')
+            received_qty = Decimal(received_qty_str) if received_qty_str else Decimal('0')
+            
+            if received_qty < 0:
+                messages.error(request, f"Quantity for {item.product.name} cannot be negative.")
+                return redirect('receive_purchase_order', po_id=po_id)
+            
+            if received_qty > item.remaining_quantity:
+                messages.error(request, 
+                    f"Quantity for {item.product.name} ({received_qty}) exceeds remaining quantity ({item.remaining_quantity})."
+                )
+                return redirect('receive_purchase_order', po_id=po_id)
+            
+            if received_qty > 0:
+                has_received_items = True
+                total_physically_received += received_qty
+                received_items_data.append({
+                    'item': item,
+                    'quantity': received_qty
+                })
+        
+        if not has_received_items:
+            messages.error(request, "Please enter received quantity for at least one item.")
+            return redirect('receive_purchase_order', po_id=po_id)
+        
         try:
             with transaction.atomic():
-                # Generate receiving number
+                receive_date_str = request.POST.get('receive_date')
+                if receive_date_str:
+                    try:
+                        receive_date = datetime.strptime(receive_date_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        receive_date = timezone.now().date()
+                else:
+                    receive_date = timezone.now().date()
+                
                 receiving_number = f"REC{timezone.now().strftime('%Y%m%d%H%M%S')}"
                 
-                # Create receiving record
                 receiving = PurchaseReceiving.objects.create(
                     po=purchase_order,
                     received_by=current_admin,
-                    invoice_number=request.POST.get('invoice_number', ''),
-                    delivery_note_number=request.POST.get('delivery_note_number', ''),
-                    carrier=request.POST.get('carrier', ''),
-                    quality_check_notes=request.POST.get('quality_check_notes', ''),
-                    overall_status='pending',  # Needs quality check
-                    receiving_number=receiving_number
+                    invoice_number=invoice_number,
+                    delivery_note_number=request.POST.get('delivery_note_number', '').strip(),
+                    carrier=request.POST.get('carrier', '').strip(),
+                    quality_check_notes=request.POST.get('quality_check_notes', '').strip(),
+                    overall_status='pending_qc',
+                    receiving_number=receiving_number,
+                    receive_date=receive_date
                 )
                 
-                total_received = 0
-                
-                # Process received items
-                for item in purchase_order.purchaseorderitem_set.all():
-                    received_qty_str = request.POST.get(f'received_qty_{item.po_item_id}', '0')
-                    received_qty = Decimal(received_qty_str) if received_qty_str else Decimal('0')
+                for data in received_items_data:
+                    item = data['item']
+                    received_qty = data['quantity']
                     
-                    if received_qty > 0:
-                        total_received += received_qty
-                        
-                        # Create received item - initially pending QC
-                        ReceivedItem.objects.create(
-                            receiving=receiving,
-                            po_item=item,
-                            quantity_received=received_qty,
-                            quantity_accepted=0,  # Will be set in QC
-                            quantity_rejected=0,  # Will be set in QC
-                            quality_checker=None,
-                            quality_check_date=None
-                        )
-                        
-                        # Update PO item with what was physically received
-                        item.received_quantity += received_qty
-                        item.quality_status = 'pending'
-                        item.save()
+                    ReceivedItem.objects.create(
+                        receiving=receiving,
+                        po_item=item,
+                        quantity_received=received_qty,
+                        quantity_accepted=0,
+                        quantity_rejected=0,
+                        quality_checker=None,
+                        quality_check_date=None
+                    )
+                    
+                    item.received_quantity += received_qty
+                    item.quality_status = 'pending'
+                    item.save()
                 
-                # Update PO status
-                if action == 'receive_complete':
-                    # Mark for quality check
-                    purchase_order.status = 'partially_received'
-                    receiving.overall_status = 'pending'
-                else:
-                    purchase_order.status = 'partially_received'
-                    receiving.overall_status = 'partial'  # FIXED: Use 'partial' which is in choices
-                
+                old_po_status = purchase_order.status
+                purchase_order.status = 'partially_received'
                 purchase_order.save()
+                
                 receiving.save()
                 
-                # Create history
                 PurchaseOrderHistory.objects.create(
                     po=purchase_order,
-                    old_status='ordered',
+                    old_status=old_po_status,
                     new_status=purchase_order.status,
                     changed_by=current_admin,
-                    notes=f"Goods received. Receiving #{receiving.receiving_number}. Total received: {total_received} units. Pending quality check."
+                    notes=f"Goods physically received (NOT in inventory yet). "
+                          f"Receiving #{receiving.receiving_number}. "
+                          f"Physically received: {total_physically_received} units. "
+                          f"Invoice: {invoice_number}. "
+                          f"PENDING QUALITY CHECK APPROVAL."
                 )
             
-            messages.success(request, f"Goods received successfully. Receiving #: {receiving.receiving_number}")
+            messages.success(request, 
+                f"✅ Goods physically received! Receiving #: {receiving.receiving_number}. "
+                f"📋 {total_physically_received} units pending quality check. "
+                f"⚠️ Items NOT added to inventory until QC approval."
+            )
             
-            # Redirect to quality check page
             return redirect('quality_check_receiving', receiving_id=receiving.receiving_id)
             
         except Exception as e:
-            messages.error(request, f"Error receiving goods: {str(e)}")
+            messages.error(request, f"❌ Error receiving goods: {str(e)}")
             return redirect('receive_purchase_order', po_id=po_id)
 
     return render(request, 'liong/receive_purchase_order.html', {
         'purchase_order': purchase_order,
-        'current_admin': current_admin
+        'current_admin': current_admin,
+        'today': timezone.now().date()
     })
-
 
 def stock_in_accepted_items(receiving, admin):
     """Stock in only the accepted items from a purchase order"""
@@ -2370,65 +2851,93 @@ def stock_in_accepted_items(receiving, admin):
     except Exception as e:
         print(f"Error stocking in accepted items: {e}")
 
-def handle_rejected_items_disposition(receiving, disposition, admin):
-    """Handle rejected items based on selected disposition"""
+def add_accepted_items_to_inventory(receiving, admin):
+    """Add QC-approved items to inventory - ONLY CALLED AFTER QC APPROVAL"""
     try:
-        rejected_items = RejectedItem.objects.filter(receiving=receiving, is_resolved=False)
+        total_accepted_units = Decimal('0')
         
-        for rejected_item in rejected_items:
-            rejected_item.disposition = disposition
-            rejected_item.disposition_date = timezone.now()
-            rejected_item.disposed_by = admin
+        for received_item in receiving.receiveditem_set.filter(quantity_accepted__gt=0):
+            product = received_item.po_item.product
+            accepted_qty = received_item.quantity_accepted
             
-            if disposition == 'keep_as_rejected':
-                # Move to rejected stock quarantine
-                RejectedStock.objects.create(
-                    rejected_item=rejected_item,
-                    product=rejected_item.po_item.product,
-                    quantity=rejected_item.quantity,
-                    batch_number=f"REJ-{receiving.receiving_number}-{timezone.now().strftime('%Y%m%d')}",
-                    location='Quarantine Area',
-                    status='quarantine',
-                    notes=f"Rejected from receiving #{receiving.receiving_number}"
-                )
-                rejected_item.disposition_notes = "Moved to rejected stock quarantine"
-                rejected_item.is_resolved = True
-                
-            elif disposition == 'return':
-                # Create return request
-                return_request = ReturnRequest.objects.create(
-                    rejected_item=rejected_item,
-                    requested_by=admin,
-                    status='pending',
-                    notes=f"Return for rejected items from receiving #{receiving.receiving_number}"
-                )
-                rejected_item.disposition_notes = f"Return request created: {return_request.request_number}"
-                
-            elif disposition == 'destroy':
-                # Create disposal record
-                disposal = DisposalRecord.objects.create(
-                    rejected_item=rejected_item,
-                    method='landfill',
-                    disposal_date=timezone.now().date(),
-                    disposed_by=admin,
-                    notes=f"Disposal of rejected items from receiving #{receiving.receiving_number}"
-                )
-                rejected_item.disposition_notes = f"Disposal record created: {disposal.disposal_number}"
-                rejected_item.is_resolved = True
-                
-            elif disposition == 'replace':
-                # Create replacement request
-                replacement = ReplacementRequest.objects.create(
-                    rejected_item=rejected_item,
-                    requested_by=admin,
-                    status='pending',
-                    notes=f"Replacement for rejected items from receiving #{receiving.receiving_number}"
-                )
-                rejected_item.disposition_notes = f"Replacement request created: {replacement.request_number}"
+            # Convert to Decimal if needed
+            if not isinstance(accepted_qty, Decimal):
+                accepted_qty = Decimal(str(accepted_qty))
             
-            rejected_item.save()
+            # Update product stock - Use 'stock' field
+            product.stock += accepted_qty
+            product.save()
+            
+            total_accepted_units += accepted_qty
+            
+            # Update InventoryBalance
+            try:
+                inv_balance, created = InventoryBalance.objects.get_or_create(
+                    product=product,
+                    defaults={
+                        'unit': product.unit,
+                        'opening_inventory': Decimal('0'),
+                        'quantity_unit': accepted_qty,
+                        'quantity_meters': Decimal('0'),
+                        'quantity_klg': Decimal('0'),
+                        'min_stock': Decimal('0'),
+                        'procurement_suggestion': Decimal('0'),
+                    }
+                )
+                
+                if not created:
+                    inv_balance.quantity_unit += accepted_qty
+                    inv_balance.save()
+                    
+            except:
+                pass  # Skip if InventoryBalance doesn't exist or fails
+            
+            # Create StockIn record
+            try:
+                StockIn.objects.create(
+                    product=product,
+                    unit=product.unit,
+                    quantity=accepted_qty,
+                    quantity_meters=Decimal('0'),
+                    quantity_klg=Decimal('0'),
+                    date_in=timezone.now().date(),
+                    acc=admin
+                )
+            except:
+                pass  # Skip if StockIn creation fails
+        
+        return True, f"Successfully added {total_accepted_units} units to inventory"
+        
     except Exception as e:
-        print(f"Error handling rejected items: {e}")
+        return False, str(e)
+
+
+def handle_rejected_items_disposition(receiving, disposition, admin):
+    """Handle rejected items based on disposition type"""
+    try:
+        # Update receiving record
+        receiving.rejection_disposition = disposition
+        receiving.save()
+        
+        # Update rejected items in RejectedItem model
+        for received_item in receiving.receiveditem_set.filter(quantity_rejected__gt=0):
+            RejectedItem.objects.create(
+                receiving=receiving,
+                po_item=received_item.po_item,
+                quantity=received_item.quantity_rejected,
+                reason=received_item.rejection_reason or 'other',
+                details=received_item.rejection_details or '',
+                disposition=disposition,
+                disposition_date=timezone.now(),
+                disposed_by=admin,
+                is_resolved=False
+            )
+        
+        return True, f"Rejected items marked with disposition: {disposition}"
+        
+    except Exception as e:
+        return False, str(e)
+    
 
 def get_receiving_details(request, receiving_id):
     """API endpoint to get receiving details"""
@@ -2619,12 +3128,16 @@ def ready_for_pickup_requisitions(request):
 
 @transaction.atomic
 def mark_ready_for_pickup(request, requisition_id):
-    """Mark requisition as ready for pickup - Reserve stock"""
+    """Mark requisition as ready for pickup - Check availability and reserve but DON'T deduct stock"""
     if 'acc_id' not in request.session:
         messages.error(request, "Please log in first.")
         return redirect('admin_login')
 
-    current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    try:
+        current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+    except Admin.DoesNotExist:
+        messages.error(request, "Admin not found.")
+        return redirect('admin_login')
     
     if current_admin.role not in ['inventory_admin', 'super_admin']:
         messages.error(request, "Only inventory can mark items ready for pickup.")
@@ -2639,6 +3152,7 @@ def mark_ready_for_pickup(request, requisition_id):
     
     # Check if all items are available
     items = Requisition_Item.objects.filter(requisition=requisition).select_related('product')
+    unavailable_items = []
     
     for item in items:
         approved_qty = item.approved_qty or item.quantity
@@ -2646,49 +3160,69 @@ def mark_ready_for_pickup(request, requisition_id):
         try:
             inv_balance = InventoryBalance.objects.get(product=item.product)
             if inv_balance.quantity_unit < approved_qty:
-                messages.error(request, 
-                    f"Insufficient stock for {item.product.name}. "
-                    f"Available: {inv_balance.quantity_unit}, Needed: {approved_qty}")
-                return redirect('ready_for_pickup_requisitions')
+                unavailable_items.append({
+                    'product': item.product.name,
+                    'available': inv_balance.quantity_unit,
+                    'needed': approved_qty
+                })
         except InventoryBalance.DoesNotExist:
             messages.error(request, f"No inventory record for {item.product.name}")
             return redirect('ready_for_pickup_requisitions')
     
-    # Reserve stock (deduct from available but mark as reserved)
-    for item in items:
-        approved_qty = item.approved_qty or item.quantity
-        
-        inv_balance = InventoryBalance.objects.get(product=item.product)
-        inv_balance.quantity_unit -= approved_qty
-        inv_balance.save()
-        
-        # Create stock out record with status='reserved'
-        StockOut.objects.create(
-            product=item.product,
-            unit=item.product.unit,
-            quantity=approved_qty,
-            date_out=timezone.now().date(),
-            acc=current_admin,
-            purpose=f"Reserved for Requisition #{requisition.requisition_id} - {requisition.employee.employee_name}",
-            status='reserved',
-            requisition=requisition,
-            notes=f"Ready for pickup. Employee: {requisition.employee.employee_name}"
-        )
-        
-        # Update reserved_qty (you might want to add this field to Requisition_Item)
-        item.reserved_qty = approved_qty
-        item.save()
+    if unavailable_items:
+        error_msg = "Insufficient stock for: "
+        error_msg += ", ".join([f"{item['product']} (Available: {item['available']}, Needed: {item['needed']})" 
+                                for item in unavailable_items])
+        messages.error(request, error_msg)
+        return redirect('ready_for_pickup_requisitions')
     
-    # Update requisition status
-    requisition.status = "Ready for Pickup"
-    requisition.pickup_ready_date = timezone.now()
-    requisition.save()
+    try:
+        with transaction.atomic():
+            # Reserve stock (MARK as reserved but DON'T deduct from inventory yet)
+            for item in items:
+                approved_qty = item.approved_qty or item.quantity
+                
+                # Mark as reserved in the requisition item
+                item.reserved_qty = approved_qty
+                item.save()
+                
+                # Create stock out record with status='reserved' (but not deducted from inventory)
+                StockOut.objects.create(
+                    product=item.product,
+                    unit=item.product.unit,
+                    quantity=approved_qty,
+                    date_out=timezone.now().date(),
+                    acc=current_admin,
+                    purpose=f"Reserved for Requisition #{requisition.requisition_id} - {requisition.employee.employee_name}",
+                    status='reserved',  # This is just reserved, not deducted
+                    requisition=requisition,
+                    notes=f"Ready for pickup - Reserved for {requisition.employee.employee_name}. "
+                          f"Stock will be deducted when employee receives items."
+                )
+            
+            # Update requisition status
+            requisition.status = "Ready for Pickup"
+            requisition.pickup_ready_date = timezone.now()
+            requisition.save()
+            
+            # Create status history
+            RequisitionStatusHistory.objects.create(
+                requisition=requisition,
+                old_status='Pending Purchase' if requisition.status == 'Pending Purchase' else 'Purchased',
+                new_status='Ready for Pickup',
+                changed_by=current_admin
+            )
+            
+            messages.success(request, 
+                f"✅ Requisition #{requisition.requisition_id} marked as Ready for Pickup. "
+                f"Stock has been RESERVED for {requisition.employee.employee_name}. "
+                f"Stock will be deducted when employee receives the items."
+            )
+            
+    except Exception as e:
+        messages.error(request, f"❌ Error marking requisition as ready: {str(e)}")
     
-    messages.success(request, 
-        f"Requisition #{requisition.requisition_id} marked as Ready for Pickup. "
-        f"Stock has been reserved for employee {requisition.employee.employee_name}.")
     return redirect('ready_for_pickup_requisitions')
-
 
 @transaction.atomic
 def complete_pickup(request, requisition_id):
@@ -3116,17 +3650,82 @@ def purchase_request_detail(request, request_id):
 
 
 def purchase_order_detail(request, po_id):
-    """AJAX: Purchase order details for modal"""
-    po = get_object_or_404(PurchaseOrder.objects.select_related(
-        'supplier', 'created_by', 'request__requisition__employee'
-    ).prefetch_related(
-        'purchaseorderitem_set__product',
-        'purchaseorderhistory_set__changed_by'
-    ), pk=po_id)
+    """Use correct template path"""
+    print(f"=== DEBUG: Looking for liong/partials/purchase_order_detail.html ===")
     
-    return render(request, 'liong/partials/purchase_order_detail.html', {
-        'po': po
-    })
+    try:
+        from .models import PurchaseOrder, PurchaseOrderItem, Admin
+        from django.utils import timezone
+        
+        # Get data
+        if 'acc_id' not in request.session:
+            return HttpResponse("Not logged in", status=401)
+        
+        current_admin = Admin.objects.get(acc_id=request.session['acc_id'])
+        purchase_order = PurchaseOrder.objects.get(pk=po_id)
+        
+        # Get items
+        try:
+            if hasattr(purchase_order, 'purchaseorderitem_set'):
+                items = purchase_order.purchaseorderitem_set.all()
+            else:
+                items = PurchaseOrderItem.objects.filter(po=purchase_order)
+        except:
+            items = []
+        
+        context = {
+            'purchase_order': purchase_order,
+            'current_admin': current_admin,
+            'items': items,
+            'today': timezone.now().date(),
+        }
+        
+        print(f"✓ Data loaded for PO #{purchase_order.po_number}")
+        print(f"✓ Template: liong/partials/purchase_order_detail.html")
+        
+        # Try the correct template
+        from django.template.loader import render_to_string
+        try:
+            html = render_to_string('liong/partials/purchase_order_detail.html', context)
+            print(f"✓ Template rendered: {len(html)} chars")
+            return HttpResponse(html)
+        except Exception as e:
+            print(f"✗ Template error: {type(e).__name__}: {e}")
+            
+            # Show what we tried to render
+            return HttpResponse(f"""
+            <div class="p-6">
+                <h3 class="text-red-500">Template Error</h3>
+                <p><strong>Template:</strong> liong/partials/purchase_order_detail.html</p>
+                <p><strong>Error:</strong> {type(e).__name__}: {str(e)}</p>
+                
+                <div class="mt-4 p-4 bg-gray-800 rounded">
+                    <h4 class="font-semibold">Available Data:</h4>
+                    <pre class="text-sm">
+PO: {purchase_order.po_number}
+Status: {purchase_order.status}
+Supplier: {purchase_order.supplier.name if purchase_order.supplier else 'None'}
+Items: {len(items)}
+Created: {purchase_order.created_date}
+                    </pre>
+                </div>
+                
+                <button onclick="closePOModal()" class="btn btn-secondary mt-4">Close</button>
+            </div>
+            """, status=500)
+            
+    except Exception as e:
+        print(f"=== ERROR ===")
+        import traceback
+        traceback.print_exc()
+        
+        return HttpResponse(f"""
+        <div class="p-6 text-center">
+            <h3 class="text-red-500">Error: {type(e).__name__}</h3>
+            <p>{str(e)[:100]}</p>
+            <button onclick="closePOModal()" class="btn btn-secondary mt-4">Close</button>
+        </div>
+        """, status=500)
 
 
 
@@ -3315,8 +3914,9 @@ def request_history(request):
         messages.error(request, f"An error occurred: {str(e)}")
         return redirect('admin_login')
 
+@transaction.atomic
 def mark_as_received(request, requisition_id):
-    """Mark a requisition as received by employee"""
+    """Mark a requisition as received by employee - NOW DEDUCTS STOCK"""
     # Check if user is logged in
     if 'acc_id' not in request.session:
         messages.error(request, "Please log in first.")
@@ -3348,18 +3948,68 @@ def mark_as_received(request, requisition_id):
                 messages.error(request, f"Requisition #{requisition_id} is not ready for pickup.")
                 return redirect('request_history')
             
-            # Update status
-            requisition.status = 'Received'
-            requisition.save()
+            # Get requisition items
+            items = Requisition_Item.objects.filter(requisition=requisition).select_related('product')
             
-            messages.success(request, f"Requisition #{requisition_id} marked as received.")
+            with transaction.atomic():
+                # Deduct stock from inventory
+                for item in items:
+                    approved_qty = item.approved_qty or item.quantity
+                    
+                    # Update inventory balance - DEDUCT STOCK HERE
+                    inv_balance = InventoryBalance.objects.get(product=item.product)
+                    inv_balance.quantity_unit -= approved_qty
+                    inv_balance.save()
+                    
+                    # Update Products stock
+                    product = item.product
+                    product.stock -= approved_qty
+                    product.save()
+                    
+                    # Update StockOut record to change status from 'reserved' to 'issued'
+                    stock_out_record = StockOut.objects.filter(
+                        requisition=requisition,
+                        product=item.product,
+                        status='reserved'
+                    ).first()
+                    
+                    if stock_out_record:
+                        stock_out_record.status = 'issued'
+                        stock_out_record.notes = f"Received by employee on {timezone.now().strftime('%Y-%m-%d %H:%M')}"
+                        stock_out_record.save()
+                    
+                    # Mark as issued in requisition item
+                    item.issued_qty = approved_qty
+                    item.fulfilled_qty = approved_qty
+                    item.save()
+                
+                # Update requisition status
+                old_status = requisition.status
+                requisition.status = 'Received'
+                requisition.received_date = timezone.now()
+                requisition.save()
+                
+                # Create status history
+                RequisitionStatusHistory.objects.create(
+                    requisition=requisition,
+                    old_status=old_status,
+                    new_status='Received',
+                    changed_by=admin
+                )
+                
+                messages.success(request, 
+                    f"✅ Requisition #{requisition_id} marked as received. "
+                    f"Stock has been deducted from inventory."
+                )
             
+        except InventoryBalance.DoesNotExist as e:
+            messages.error(request, f"❌ Inventory record not found: {str(e)}")
         except Admin.DoesNotExist:
             messages.error(request, "Session expired. Please log in again.")
             request.session.flush()
             return redirect('admin_login')
         except Exception as e:
-            messages.error(request, f"Error marking requisition as received: {str(e)}")
+            messages.error(request, f"❌ Error marking requisition as received: {str(e)}")
     
     return redirect('request_history')
 

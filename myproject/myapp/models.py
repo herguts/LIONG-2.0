@@ -105,6 +105,8 @@ class Requisition_Item(models.Model):
     approved_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     purchase_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     fulfilled_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # ADD THIS LINE
+    reserved_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Reserved when marked ready
+    issued_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)    # Actually issued when received
 
     class Meta:
         db_table = "requisition_item"

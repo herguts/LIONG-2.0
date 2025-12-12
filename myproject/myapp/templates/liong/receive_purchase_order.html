@@ -3,269 +3,1075 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIONG | Receive Purchase Order</title>
+    <title>Receive Purchase Order</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #9722be, #1e1e2d);
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
 </head>
-<body class="bg-gray-50">
+<body>
 
-<inventory-sidebar></inventory-sidebar>
+    <inventory-sidebar></inventory-sidebar>
 
-<main class="main-content">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Receive Purchase Order</h1>
-        <a href="{% url 'purchase_orders_list' %}" 
-           class="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border hover:bg-gray-50">
-            <i class="fas fa-arrow-left mr-1"></i> Back to Purchase Orders
-        </a>
-    </div>
-
-    <!-- Messages -->
-    {% if messages %}
-    <div class="mb-6">
-        {% for message in messages %}
-        <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800 border border-yellow-200{% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
+    <main class="main-content">
+        <!-- Messages -->
+        {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+            <div class="message {% if message.tags == 'error' %}message-error{% else %}message-success{% endif %}">
+                <div class="message-content">
+                    {% if message.tags == 'error' %}
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    {% else %}
+                    <i class="fa-solid fa-circle-check"></i>
+                    {% endif %}
                     {{ message }}
                 </div>
-                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times"></i>
+                <button class="message-close" onclick="this.parentElement.style.display='none'">
+                    <i class="fa-solid fa-times"></i>
                 </button>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+        {% endif %}
 
-    <!-- PO Information -->
-    <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-        <div class="flex justify-between items-start mb-6">
-            <div>
-                <h2 class="text-xl font-bold text-gray-800">{{ purchase_order.po_number }}</h2>
-                <div class="flex items-center space-x-4 mt-2">
-                    <span class="px-3 py-1 rounded-full text-sm font-medium 
-                        {% if purchase_order.status == 'sent' %}bg-yellow-100 text-yellow-800
-                        {% elif purchase_order.status == 'ordered' %}bg-blue-100 text-blue-800
-                        {% elif purchase_order.status == 'partially_received' %}bg-purple-100 text-purple-800
-                        {% elif purchase_order.status == 'received' %}bg-green-100 text-green-800
-                        {% else %}bg-gray-100 text-gray-800{% endif %}">
-                        {{ purchase_order.get_status_display }}
-                    </span>
-                    <span class="text-sm text-gray-600">Supplier: {{ purchase_order.supplier.name }}</span>
+        <!-- PO Information -->
+        <div class="form-container">
+            <div class="po-header">
+                <div class="po-info">
+                    <h3>{{ purchase_order.po_number }}</h3>
+                    <div class="po-details">
+                        <span class="status-badge 
+                            {% if purchase_order.status == 'sent' %}status-sent
+                            {% elif purchase_order.status == 'ordered' %}status-ordered
+                            {% elif purchase_order.status == 'partially_received' %}status-partial
+                            {% elif purchase_order.status == 'received' %}status-received
+                            {% else %}status-other{% endif %}">
+                            {{ purchase_order.get_status_display }}
+                        </span>
+                        <span class="supplier">
+                            <i class="fa-solid fa-truck"></i> {{ purchase_order.supplier.name }}
+                        </span>
+                    </div>
+                </div>
+                <div class="po-amount">
+                    <span class="amount">₱{{ purchase_order.total_amount|floatformat:2 }}</span>
+                    <span class="label">Total Amount</span>
                 </div>
             </div>
-            <div class="text-right">
-                <p class="text-lg font-bold text-gray-800">₱{{ purchase_order.total_amount|floatformat:2 }}</p>
-                <p class="text-sm text-gray-600">Total Amount</p>
-            </div>
-        </div>
 
-        <!-- Supplier Info -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-            <div>
-                <p class="text-sm font-medium text-gray-600">Supplier Contact</p>
-                <p class="text-gray-800">{{ purchase_order.supplier.contact_person|default:"-" }}</p>
-                <p class="text-sm text-gray-600">{{ purchase_order.supplier.phone }}</p>
-            </div>
-            <div>
-                <p class="text-sm font-medium text-gray-600">Delivery Date</p>
-                <p class="text-gray-800">{{ purchase_order.delivery_date|date:"M d, Y"|default:"Not set" }}</p>
-            </div>
-            <div>
-                <p class="text-sm font-medium text-gray-600">Payment Terms</p>
-                <p class="text-gray-800">{{ purchase_order.payment_terms }}</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Step Indicator -->
-    <div class="mb-8">
-        <div class="flex items-center justify-center mb-4">
-            <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
-                    1
+            <!-- Supplier Info -->
+            <div class="supplier-grid">
+                <div class="supplier-info">
+                    <div class="info-label">
+                        <i class="fa-solid fa-user"></i> Supplier Contact
+                    </div>
+                    <div class="info-value">{{ purchase_order.supplier.contact_person|default:"-" }}</div>
+                    <div class="info-sub">{{ purchase_order.supplier.phone }}</div>
                 </div>
-                <div class="ml-2 font-medium text-blue-600">Initial Receiving</div>
-            </div>
-            <div class="w-24 h-1 bg-gray-300 mx-4"></div>
-            <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center font-bold">
-                    2
+                
+                <div class="supplier-info">
+                    <div class="info-label">
+                        <i class="fa-solid fa-calendar-alt"></i> Expected Delivery Date
+                    </div>
+                    <div class="info-value">{{ purchase_order.delivery_date|date:"M d, Y"|default:"Not set" }}</div>
                 </div>
-                <div class="ml-2 font-medium text-gray-500">Quality Check</div>
-            </div>
-        </div>
-        <p class="text-center text-sm text-gray-600">Step 1: Record what was physically delivered. Quality check will be done next.</p>
-    </div>
-
-    <!-- Receiving Form -->
-    <form method="POST" class="bg-white rounded-xl shadow-md p-6">
-        {% csrf_token %}
-        
-        <!-- Receiving Details -->
-        <div class="mb-8">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                <i class="fas fa-truck mr-2"></i>Receiving Details
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Invoice Number *</label>
-                    <input type="text" name="invoice_number" required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           placeholder="Supplier invoice number">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Delivery Note Number</label>
-                    <input type="text" name="delivery_note_number"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           placeholder="Delivery note/waybill number">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Carrier</label>
-                    <input type="text" name="carrier"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           placeholder="Shipping company">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Receive Date *</label>
-                    <input type="date" name="receive_date" 
-                           value="{% now 'Y-m-d' %}"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           required>
+                
+                <div class="supplier-info">
+                    <div class="info-label">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> Payment Terms
+                    </div>
+                    <div class="info-value">{{ purchase_order.payment_terms }}</div>
                 </div>
             </div>
         </div>
 
-        <!-- Items Receiving -->
-        <div class="mb-8">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                <i class="fas fa-clipboard-list mr-2"></i>Items Received (Physical Count)
-            </h3>
+        <!-- Step Indicator -->
+        <div class="form-container">
+            <div class="step-indicator">
+                <div class="step active">
+                    <div class="step-circle">
+                        <span>1</span>
+                    </div>
+                    <div class="step-label">Initial Receiving</div>
+                </div>
+                <div class="step-line"></div>
+                <div class="step">
+                    <div class="step-circle">
+                        <span>2</span>
+                    </div>
+                    <div class="step-label">Quality Check</div>
+                </div>
+            </div>
+            <p class="step-description">
+                Step 1: Record what was physically delivered. Quality check will be done next.
+            </p>
+        </div>
+
+        <!-- Receiving Form -->
+        <form method="POST" class="form-container">
+            {% csrf_token %}
             
-            <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div class="flex items-center">
-                    <i class="fas fa-info-circle text-blue-600 mr-2"></i>
-                    <p class="text-sm text-blue-700">
-                        Enter the physical quantity received for each item. Quality check will be done in the next step.
-                    </p>
+            <!-- Receiving Details -->
+            <div class="form-section">
+                <div class="section-header">
+                    <h4><i class="fa-solid fa-truck"></i> Receiving Details</h4>
                 </div>
-            </div>
-            
-            <div class="space-y-4">
-                {% for item in purchase_order.purchaseorderitem_set.all %}
-                <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <h4 class="font-bold text-gray-800">{{ item.product.name }}</h4>
-                            <p class="text-sm text-gray-600">
-                                Ordered: {{ item.quantity }} {{ item.product.unit }} • 
-                                ₱{{ item.unit_price|floatformat:2 }} each
-                            </p>
-                            {% if item.received_quantity > 0 %}
-                            <p class="text-sm text-green-600 mt-1">
-                                <i class="fas fa-box-open mr-1"></i>
-                                Previously received: {{ item.received_quantity }} {{ item.product.unit }}
-                            </p>
-                            {% endif %}
-                            {% if item.remaining_quantity > 0 %}
-                            <p class="text-sm text-blue-600 mt-1">
-                                <i class="fas fa-clock mr-1"></i>
-                                Still to receive: {{ item.remaining_quantity }} {{ item.product.unit }}
-                            </p>
-                            {% endif %}
-                        </div>
-                        <div class="text-right">
-                            <p class="font-bold">₱{{ item.total_price|floatformat:2 }}</p>
-                            <p class="text-sm text-gray-600">Total</p>
-                        </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-file-invoice"></i> Invoice Number <span class="required">*</span></label>
+                        <input type="text" name="invoice_number" required
+                               class="form-input"
+                               placeholder="Supplier invoice number">
                     </div>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Quantity Physically Received *
-                        </label>
-                        <div class="flex items-center space-x-4">
-                            <input type="number" 
-                                   name="received_qty_{{ item.po_item_id }}"
-                                   id="received_qty_{{ item.po_item_id }}"
-                                   step="0.01"
-                                   min="0"
-                                   max="{{ item.remaining_quantity|add:100 }}"
-                                   class="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                   placeholder="0.00"
-                                   required>
-                            <span class="text-gray-600">{{ item.product.unit }}</span>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">
-                            Maximum allowed: {{ item.remaining_quantity|add:100 }} {{ item.product.unit }}
-                        </p>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-clipboard-list"></i> Delivery Note Number</label>
+                        <input type="text" name="delivery_note_number"
+                               class="form-input"
+                               placeholder="Delivery note/waybill number">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-shipping-fast"></i> Carrier</label>
+                        <input type="text" name="carrier"
+                               class="form-input"
+                               placeholder="Shipping company">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-calendar-day"></i> Receive Date <span class="required">*</span></label>
+                        <input type="date" name="receive_date" 
+                               value="{% now 'Y-m-d' %}"
+                               class="form-input"
+                               required>
                     </div>
                 </div>
-                {% endfor %}
             </div>
-        </div>
 
-        <!-- Initial Notes -->
-        <div class="mb-8">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-                <i class="fas fa-sticky-note mr-2"></i>Initial Receiving Notes
-            </label>
-            <textarea name="quality_check_notes" rows="3"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Any initial observations, packaging condition, delivery timing..."></textarea>
-        </div>
+            <!-- Items Receiving -->
+            <div class="form-section">
+                <div class="section-header">
+                    <h4><i class="fa-solid fa-clipboard-list"></i> Items Received (Physical Count)</h4>
+                </div>
+                
+                <div class="info-box">
+                    <i class="fa-solid fa-info-circle"></i>
+                    <p>Enter the physical quantity received for each item. Quality check will be done in the next step.</p>
+                </div>
+                
+                <div class="items-list">
+                    {% for item in purchase_order.purchaseorderitem_set.all %}
+                    <div class="item-card animate__animated animate__fadeIn">
+                        <div class="item-header">
+                            <div class="item-info">
+                                <h5>{{ item.product.name }}</h5>
+                                <div class="item-details">
+                                    <span class="detail">
+                                        <i class="fa-solid fa-box"></i> Ordered: {{ item.quantity }} {{ item.product.unit }}
+                                    </span>
+                                    <span class="detail">
+                                        <i class="fa-solid fa-money-bill-wave"></i> ₱{{ item.unit_price|floatformat:2 }} each
+                                    </span>
+                                </div>
+                                {% if item.received_quantity > 0 %}
+                                <div class="item-previous">
+                                    <i class="fa-solid fa-box-open"></i>
+                                    Previously received: {{ item.received_quantity }} {{ item.product.unit }}
+                                </div>
+                                {% endif %}
+                                {% if item.remaining_quantity > 0 %}
+                                <div class="item-pending">
+                                    <i class="fa-solid fa-clock"></i>
+                                    Still to receive: {{ item.remaining_quantity }} {{ item.product.unit }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="item-total">
+                                <span class="total">₱{{ item.total_price|floatformat:2 }}</span>
+                                <span class="label">Total</span>
+                            </div>
+                        </div>
+                        
+                        <div class="item-receive">
+                            <label>Quantity Physically Received <span class="required">*</span></label>
+                            <div class="quantity-input-group">
+                                <input type="number" 
+                                       name="received_qty_{{ item.po_item_id }}"
+                                       id="received_qty_{{ item.po_item_id }}"
+                                       step="1"
+                                       min="0"
+                                       max="{{ item.remaining_quantity }}"
+                                       class="form-input"
+                                       placeholder="0"
+                                       required>
+                                <span class="unit">{{ item.product.unit }}</span>
+                            </div>
+                            <div class="input-help">
+                                Maximum allowed: {{ item.remaining_quantity }} {{ item.product.unit }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
 
-        <!-- Form Actions -->
-        <div class="flex justify-end space-x-3">
-            <a href="{% url 'purchase_orders_list' %}"
-               class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
-                Cancel
-            </a>
-            <button type="submit" name="action" value="receive_partial"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                <i class="fas fa-clipboard-check mr-1"></i> Receive & Proceed to QC
-            </button>
-        </div>
-    </form>
-</main>
+            <!-- Initial Notes -->
+            <div class="form-section">
+                <div class="form-group">
+                    <label><i class="fa-solid fa-sticky-note"></i> Initial Receiving Notes</label>
+                    <textarea name="quality_check_notes" rows="3"
+                              class="form-textarea"
+                              placeholder="Any initial observations, packaging condition, delivery timing..."></textarea>
+                </div>
+            </div>
 
-<script src="{% static 'js/inventory_dashboard.js' %}"></script>
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <a href="{% url 'purchase_orders_list' %}"
+                   class="btn btn-secondary">
+                    Cancel
+                </a>
+                <button name="action" value="receive_partial"
+                        class="btn btn-primary">
+                    <i class="fa-solid fa-clipboard-check"></i> Receive & Proceed to QC
+                </button>
+            </div>
+        </form>
+    </main>
 
-<script>
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Set max date to today
-    const dateInput = document.querySelector('input[name="receive_date"]');
-    const today = new Date().toISOString().split('T')[0];
-    dateInput.max = today;
+    <style>
+        /* Welcome Header */
+        .welcome-header {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .welcome-header h2 {
+            margin: 0 0 10px 0;
+            color: #ffdd59;
+            font-size: 28px;
+        }
+
+        .welcome-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .welcome-header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            background: #00c853;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 14px;
+            width: fit-content;
+        }
+
+        .back-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.9);
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Messages */
+        .messages-container {
+            margin-bottom: 30px;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(10px);
+        }
+
+        .message-success {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid #00c853;
+        }
+
+        .message-error {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid #ff4757;
+        }
+
+        .message-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        .message-close:hover {
+            color: white;
+        }
+
+        /* Form Container */
+        .form-container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        /* PO Header */
+        .po-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .po-info h3 {
+            margin: 0 0 10px 0;
+            color: #ffdd59;
+            font-size: 24px;
+        }
+
+        .po-details {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-sent {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #FFC107;
+        }
+
+        .status-ordered {
+            background: rgba(33, 150, 243, 0.1);
+            border: 1px solid rgba(33, 150, 243, 0.3);
+            color: #2196F3;
+        }
+
+        .status-partial {
+            background: rgba(156, 39, 176, 0.1);
+            border: 1px solid rgba(156, 39, 176, 0.3);
+            color: #9C27B0;
+        }
+
+        .status-received {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid rgba(0, 200, 83, 0.3);
+            color: #00c853;
+        }
+
+        .supplier {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: rgba(255,255,255,0.8);
+            font-size: 14px;
+        }
+
+        .supplier i {
+            color: #ffdd59;
+        }
+
+        .po-amount {
+            text-align: right;
+        }
+
+        .amount {
+            display: block;
+            color: #ffdd59;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .label {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        /* Supplier Grid */
+        .supplier-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .supplier-info {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .info-label i {
+            color: #ffdd59;
+        }
+
+        .info-value {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .info-sub {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        /* Step Indicator */
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .step.active .step-circle {
+            background: #2196F3;
+            color: white;
+            box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
+        }
+
+        .step:not(.active) .step-circle {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.5);
+        }
+
+        .step-label {
+            margin-top: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .step.active .step-label {
+            color: #2196F3;
+        }
+
+        .step:not(.active) .step-label {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .step-line {
+            width: 100px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0 20px;
+        }
+
+        .step-description {
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        /* Form Sections */
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .section-header {
+            margin-bottom: 20px;
+        }
+
+        .section-header h4 {
+            margin: 0;
+            color: #ffdd59;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Form Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ffdd59;
+        }
+
+        .required {
+            color: #ff4757;
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgb(255, 255, 255);
+            border: 1px solid rgb(255, 255, 255);
+            border-radius: 10px;
+            color: rgb(0, 0, 0);
+            font-size: 14px;
+            transition: 0.3s;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #00c853;
+            box-shadow: 0 0 0 2px rgba(0, 200, 83, 0.2);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Info Box */
+        .info-box {
+            background: rgba(33, 150, 243, 0.1);
+            border: 1px solid rgba(33, 150, 243, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .info-box i {
+            color: #2196F3;
+            font-size: 18px;
+            margin-top: 2px;
+        }
+
+        .info-box p {
+            margin: 0;
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+        }
+
+        /* Items List */
+        .items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .item-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .item-info h5 {
+            margin: 0 0 10px 0;
+            color: white;
+            font-size: 16px;
+        }
+
+        .item-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 8px;
+        }
+
+        .detail {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .detail i {
+            color: #ffdd59;
+        }
+
+        .item-previous {
+            font-size: 12px;
+            color: #00c853;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .item-pending {
+            font-size: 12px;
+            color: #2196F3;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .item-total {
+            text-align: right;
+        }
+
+        .item-total .total {
+            display: block;
+            color: #ffdd59;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .item-total .label {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        /* Item Receive */
+        .item-receive label {
+            margin-bottom: 10px;
+        }
+
+        .quantity-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .quantity-input-group .form-input {
+            width: 120px;
+        }
+
+        .unit {
+            color: rgba(255,255,255,0.8);
+            font-size: 14px;
+        }
+
+        .input-help {
+            font-size: 12px;
+            opacity: 0.6;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: #00c853;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #03b34a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 200, 83, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255,255,255,0.9);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+            
+            .welcome-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+            }
+            
+            .welcome-header .user-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .back-btn {
+                align-self: stretch;
+                justify-content: center;
+            }
+            
+            .po-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .po-amount {
+                text-align: left;
+            }
+            
+            .step-indicator {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .step-line {
+                width: 2px;
+                height: 40px;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .item-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .item-total {
+                text-align: left;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none;
+        }
+
+        /* Animation Classes */
+        .animate__fadeIn {
+            animation-duration: 0.5s;
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('receivingForm');
+    const qcBtn = document.getElementById('proceedToQCBtn');
     
-    // Auto-calculate max values based on remaining quantity
+    // Validation for received quantities
+    function validateQuantities() {
+        let isValid = true;
+        let hasAtLeastOneItem = false;
+        
+        // Check all quantity inputs
+        document.querySelectorAll('input[id^="received_qty_"]').forEach(input => {
+            const value = parseFloat(input.value) || 0;
+            const max = parseFloat(input.max) || 0;
+            
+            if (value > 0) {
+                hasAtLeastOneItem = true;
+                
+                // Check if value exceeds remaining quantity
+                if (value > max) {
+                    isValid = false;
+                    input.style.borderColor = '#ff4757';
+                    input.style.backgroundColor = 'rgba(255, 71, 87, 0.1)';
+                    
+                    // Show error message
+                    let errorMsg = input.parentNode.querySelector('.error-message');
+                    if (!errorMsg) {
+                        errorMsg = document.createElement('div');
+                        errorMsg.className = 'error-message';
+                        errorMsg.style.color = '#ff4757';
+                        errorMsg.style.fontSize = '12px';
+                        errorMsg.style.marginTop = '5px';
+                        input.parentNode.appendChild(errorMsg);
+                    }
+                    errorMsg.textContent = `Cannot exceed ${max} ${input.nextElementSibling?.textContent || 'units'}`;
+                } else {
+                    input.style.borderColor = '';
+                    input.style.backgroundColor = '';
+                    
+                    // Remove error message
+                    const errorMsg = input.parentNode.querySelector('.error-message');
+                    if (errorMsg) errorMsg.remove();
+                }
+            } else if (value < 0) {
+                isValid = false;
+                input.style.borderColor = '#ff4757';
+                input.style.backgroundColor = 'rgba(255, 71, 87, 0.1)';
+            }
+        });
+        
+        // Check if at least one item has quantity > 0
+        if (!hasAtLeastOneItem) {
+            isValid = false;
+            // Show a general error
+            alert('Please enter received quantity for at least one item.');
+        }
+        
+        return isValid;
+    }
+    
+    // Form submission handler
+    form.addEventListener('submit', function(e) {
+        const action = document.activeElement?.value || 'receive_partial';
+        
+        if (action === 'receive_partial') {
+            if (!validateQuantities()) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Scroll to first error
+                const firstError = document.querySelector('input[style*="border-color: rgb(255, 71, 87)"]');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstError.focus();
+                }
+                
+                return false;
+            }
+            
+            // Show loading state
+            qcBtn.disabled = true;
+            qcBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+            
+            // Continue with form submission (will redirect to QC page)
+        }
+    });
+    
+    // Real-time validation as user types
     document.querySelectorAll('input[id^="received_qty_"]').forEach(input => {
-        const maxValue = input.max;
         input.addEventListener('input', function() {
-            if (parseFloat(this.value) > parseFloat(maxValue)) {
-                this.value = maxValue;
+            const value = parseFloat(this.value) || 0;
+            const max = parseFloat(this.max) || 0;
+            
+            if (value > max) {
+                this.value = max;
+            } else if (value < 0) {
+                this.value = 0;
+            }
+            
+            // Remove error styling when user corrects
+            if (value <= max && value >= 0) {
+                this.style.borderColor = '';
+                this.style.backgroundColor = '';
+                const errorMsg = this.parentNode.querySelector('.error-message');
+                if (errorMsg) errorMsg.remove();
             }
         });
     });
-});
-</script>
-
-<style>
-.main-content {
-    margin-left: 250px;
-    padding: 30px;
-}
-
-@media (max-width: 768px) {
-    .main-content {
-        margin-left: 0;
-        padding: 15px;
+    
+    // Auto-set today's date if not set
+    const receiveDateInput = document.querySelector('input[name="receive_date"]');
+    if (receiveDateInput && !receiveDateInput.value) {
+        const today = new Date().toISOString().split('T')[0];
+        receiveDateInput.value = today;
     }
-}
-</style>
+});
+        // Real-time clock
+        function updateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            const timeString = now.toLocaleDateString('en-US', options);
+            const timeElement = document.getElementById('currentTime');
+            if (timeElement) {
+                timeElement.innerHTML = '<i class="fa-solid fa-clock"></i> ' + timeString;
+            }
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // Auto-calculate max values based on remaining quantity
+            document.querySelectorAll('input[id^="received_qty_"]').forEach(input => {
+                const maxValue = input.max;
+                input.addEventListener('input', function() {
+                    if (parseFloat(this.value) > parseFloat(maxValue)) {
+                        this.value = maxValue;
+                    }
+                });
+            });
+
+            // Auto-remove messages after 5 seconds
+            setTimeout(function() {
+                const messages = document.querySelectorAll('.message');
+                messages.forEach(function(message) {
+                    message.style.transition = 'opacity 0.5s';
+                    message.style.opacity = '0';
+                    setTimeout(() => message.remove(), 500);
+                });
+            }, 5000);
+        });
+    </script>
+    <script src="{% static 'js/inventory_dashboard.js' %}"></script>
 </body>
 </html>

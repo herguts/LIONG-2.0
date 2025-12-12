@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
 </head>
 <body>
     <!-- Your existing sidebar component -->
@@ -70,7 +71,7 @@
             <!-- Low Stock Items -->
             <div class="stat-card">
                 <i class="fa-solid fa-triangle-exclamation stat-icon"></i>
-                <div class="stat-value">{{ low_stock_count }}</div>
+                <div class="stat-value">{{ out_of_stock_count }}</div>
                 <div class="stat-label">Low Stock Items</div>
                 <div class="stat-desc">Need immediate attention</div>
             </div>
@@ -148,7 +149,7 @@
                     <p class="section-subtitle">Items that need immediate attention</p>
                 </div>
                 <div class="section-badge">
-                    <span class="badge-count badge-danger">{{ low_stock_count }}</span>
+                    <span class="badge-count badge-danger">{{ out_of_stock_count }}</span>
                     Items need attention
                 </div>
             </div>
@@ -160,11 +161,9 @@
                         <tr>
                             <th>Product</th>
                             <th>Unit</th>
-                            <th class="text-right">Current Stock</th>
-                            <th class="text-right">Min Stock</th>
-                            <th class="text-right">Deficit</th>
-                            <th class="text-right">Status</th>
-                            <th>Action</th>
+                            <th class="text-center">Current Stock</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -181,19 +180,11 @@
                                     </div>
                                 </div>
                             </td>
-                            <td class="text-center">{{ item.unit }}</td>
-                            <td class="text-right stock-value {% if item.current_quantity == 0 %}stock-out{% elif item.current_quantity < item.min_stock %}stock-low{% endif %}">
+                            <td class="text-left">{{ item.unit }}</td>
+                            <td class="text-center stock-value {% if item.current_quantity == 0 %}stock-out{% elif item.current_quantity < item.min_stock %}stock-low{% endif %}">
                                 {{ item.current_quantity|floatformat:2 }}
                             </td>
-                            <td class="text-right">{{ item.min_stock|floatformat:2 }}</td>
-                            <td class="text-right deficit-value">
-                                {% if item.current_quantity < item.min_stock %}
-                                {{ item.deficit|floatformat:2 }}
-                                {% else %}
-                                0
-                                {% endif %}
-                            </td>
-                            <td class="text-right">
+                            <td class="text-center">
                                 {% if item.current_quantity == 0 %}
                                 <span class="status-badge status-out">
                                     <i class="fa-solid fa-circle-xmark"></i> Out of Stock
@@ -204,7 +195,7 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="text-center">
                                 {% if item.current_quantity <= 0 %}
                                     <button onclick="openPurchaseRequestModal('{{ item.product.product_id }}', '{{ item.product.name|escapejs }}', {{ item.min_stock|default:10 }}, '{{ item.unit|escapejs }}')"
                                             class="btn btn-warning btn-sm">
@@ -322,21 +313,10 @@
                             <input type="number" 
                                    name="estimated_unit_price" 
                                    min="0" 
-                                   step="0.01" 
+                                   step="1" 
                                    required
-                                   placeholder="0.00">
+                                   placeholder="0">
                         </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fa-solid fa-credit-card"></i> Payment Method <span class="required">*</span></label>
-                        <select name="payment_method" required>
-                            <option value="cash_on_delivery">Cash on Delivery</option>
-                            <option value="bank_transfer">Bank Transfer</option>
-                            <option value="gcash">GCash</option>
-                            <option value="check">Check</option>
-                            <option value="credit">Credit</option>
-                        </select>
                     </div>
                     
                     <div class="form-group">
@@ -956,7 +936,7 @@
         }
 
         .modal-content {
-            background: rgba(30, 30, 45, 0.95);
+            background: rgba(132, 92, 143, 0.95);
             backdrop-filter: blur(20px);
             border-radius: 15px;
             width: 90%;

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Order #{{ po.po_number }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #9722be, #1e1e2d);
+            color: white;
+            padding: 30px;
+            border-radius: 10px 10px 0 0;
+            text-align: center;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+        }
+        .info-box {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .info-row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .info-label {
+            font-weight: bold;
+            width: 200px;
+            color: #9722be;
+        }
+        .info-value {
+            flex: 1;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin: 25px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        th {
+            background: #9722be;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .total-row {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #9722be;
+            color: #666;
+            font-size: 14px;
+        }
+        .highlight {
+            background: #ffdd59;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+            color: #333;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #00c853;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Purchase Order #{{ po.po_number }}</h1>
+        <p>{{ company_name }}</p>
+        {% if original_po_number %}
+        <div class="highlight">
+            📝 Re-order from PO #{{ original_po_number }}
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="content">
+        <div class="info-box">
+            <h2>Order Information</h2>
+            <div class="info-row">
+                <div class="info-label">PO Number:</div>
+                <div class="info-value">{{ po.po_number }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Date Created:</div>
+                <div class="info-value">{{ po.created_date|date:"F d, Y" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Status:</div>
+                <div class="info-value">
+                    <span class="status-badge">Draft</span>
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Expected Delivery:</div>
+                <div class="info-value">
+                    {% if po.delivery_date %}
+                        {{ po.delivery_date|date:"F d, Y" }}
+                    {% else %}
+                        To be confirmed
+                    {% endif %}
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Payment Terms:</div>
+                <div class="info-value">{{ po.payment_terms }}</div>
+            </div>
+        </div>
+        
+        <div class="info-box">
+            <h2>Supplier Information</h2>
+            <div class="info-row">
+                <div class="info-label">Company:</div>
+                <div class="info-value">{{ supplier.name }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Contact:</div>
+                <div class="info-value">{{ supplier.contact_person|default:"Not specified" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Phone:</div>
+                <div class="info-value">{{ supplier.phone }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Email:</div>
+                <div class="info-value">{{ supplier.email }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Address:</div>
+                <div class="info-value">{{ supplier.address }}</div>
+            </div>
+        </div>
+        
+        <div class="info-box">
+            <h2>Order Items</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Description</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.product.description|truncatechars:50 }}</td>
+                            <td>{{ item.quantity }} {{ item.product.unit }}</td>
+                            <td>₱{{ item.unit_price|floatformat:2 }}</td>
+                            <td>₱{{ item.total_price|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="total-row">
+                            <td colspan="4" style="text-align: right; font-weight: bold;">Total Amount:</td>
+                            <td style="font-weight: bold; color: #9722be;">₱{{ po.total_amount|floatformat:2 }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        {% if po.notes %}
+        <div class="info-box">
+            <h2>Special Instructions</h2>
+            <p>{{ po.notes|linebreaks }}</p>
+        </div>
+        {% endif %}
+        
+        <div class="footer">
+            <p><strong>{{ company_name }}</strong></p>
+            <p>This purchase order was created by {{ sent_by.username }} ({{ sent_by.role|title }})</p>
+            <p>Please acknowledge receipt of this purchase order and confirm delivery dates.</p>
+            <p>For any questions or clarifications, please contact our purchasing department.</p>
+            <p>© {% now "Y" %} {{ company_name }}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

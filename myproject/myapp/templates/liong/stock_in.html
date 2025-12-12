@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <script src="https://unpkg.com/feather-icons"></script>
     <style>
         body {
             margin: 0;
@@ -40,15 +41,11 @@
         <div class="welcome-header">
             <div class="user-info">
                 <div class="user-avatar">
-                    {{ request.user.username|slice:"0:1"|upper }}
+                    <i class="fa-solid fa-user"></i>
+                    {{ admin.username|slice:"0:1"|upper }}
                 </div>
                 <div>
                     <h2>Stock In</h2>
-                    <p>Add new inventory stock to your products</p>
-                    <div class="time-display" id="currentTime">
-                        <i class="fa-solid fa-clock"></i>
-                        Loading time...
-                    </div>
                 </div>
             </div>
             <button id="openProductModal" class="btn btn-primary">
@@ -75,6 +72,13 @@
                 <div class="stat-date">{% now "M d, Y" %}</div>
                 <div class="stat-label">Today's Date</div>
                 <div class="stat-desc">Current date</div>
+            </div>
+            <!-- New Stat Card for Recent Stock Ins -->
+            <div class="stat-card" onclick="showRecentStockIns()" style="cursor: pointer;">
+                <i class="fa-solid fa-clock-rotate-left stat-icon"></i>
+                <div class="stat-value">{{ recent_stock_in|length }}</div>
+                <div class="stat-label">Recent Stock Ins</div>
+                <div class="stat-desc">Last 10 entries</div>
             </div>
         </div>
 
@@ -114,10 +118,14 @@
                     <div class="form-group">
                         <select id="product" name="product" required>
                             <option value="" disabled selected>Select a Product</option>
-                            {% for product in products %}
-                                <option value="{{ product.product_id }}" data-unit="{{ product.unit }}">
-                                    {{ product.name }} ({{ product.unit }})
-                                </option>
+                            {% for balance in products %}
+                                {% if balance.product %}
+                                    <option value="{{ balance.product.product_id }}" data-unit="{{ balance.unit }}">
+                                        {{ balance.product.name }} ({{ balance.unit }})
+                                    </option>
+                                {% endif %}
+                            {% empty %}
+                                <option value="" disabled>No products available</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -206,6 +214,58 @@
                     </button>
                 </div>
             </form>
+        </div>
+
+        <!-- Recent Stock Ins Table -->
+        <div class="form-container">
+            <div class="section-header" style="border-bottom: none; margin-bottom: 20px;">
+                <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Stock Ins</h3>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" onclick="refreshStockIns()">
+                        <i class="fa-solid fa-rotate-right"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            
+            {% if recent_stock_in %}
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th></i>Product ID</th>
+                            <th><i class="fa-solid fa-calendar"></i> Date</th>
+                            <th><i class="fa-solid fa-cube"></i> Product</th>
+                            <th></i> Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stock in recent_stock_in %}
+                        <tr class="animate__animated animate__fadeIn">
+                            <td>#{{ stock.stock_in_id }}</td>
+                            <td>{{ stock.date_in|date:"M d, Y" }}</td>
+                            <td>
+                                <div class="product-info">
+                                    <strong>{{ stock.product.name }}</strong>
+                                    <span class="product-unit">{{ stock.unit }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="quantity-badge">
+                                    {{ stock.quantity|floatformat:3 }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fa-solid fa-box-open empty-icon"></i>
+                <h4>No Recent Stock Ins</h4>
+                <p>No stock has been added yet.</p>
+            </div>
+            {% endif %}
         </div>
     </main>
 
@@ -429,6 +489,23 @@
             gap: 10px;
         }
 
+        /* Header Actions */
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 221, 89, 0.1);
+            color: #ffdd59;
+            border: 1px solid rgba(255, 221, 89, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 221, 89, 0.2);
+        }
+
         /* Form Sections */
         .form-section {
             margin-bottom: 30px;
@@ -442,6 +519,9 @@
 
         .section-header {
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .section-header h4 {
@@ -637,6 +717,125 @@
             margin-top: 30px;
         }
 
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .data-table thead {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .data-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #ffdd59;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tbody tr {
+            transition: all 0.3s;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Product Info in Table */
+        .product-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-unit {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        /* Quantity Badges */
+        .quantity-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: rgba(0, 200, 83, 0.2);
+            border: 1px solid rgba(0, 200, 83, 0.3);
+            border-radius: 6px;
+            font-weight: 600;
+            color: #00c853;
+        }
+
+        .quantity-badge.secondary {
+            background: rgba(255, 221, 89, 0.2);
+            border-color: rgba(255, 221, 89, 0.3);
+            color: #ffdd59;
+        }
+
+        /* User Cell */
+        .user-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar-small {
+            width: 30px;
+            height: 30px;
+            background: #007bff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .empty-icon {
+            font-size: 60px;
+            color: rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .empty-state h4 {
+            color: #ffdd59;
+            margin: 0 0 10px 0;
+        }
+
+        .empty-state p {
+            opacity: 0.7;
+            margin: 0;
+        }
+
+        .empty-value {
+            color: rgba(255, 255, 255, 0.3);
+            font-style: italic;
+        }
+
         /* Modal */
         .modal {
             position: fixed;
@@ -667,7 +866,7 @@
         }
 
         .modal-content {
-            background: rgba(30, 30, 45, 0.95);
+            background: rgba(139, 63, 160, 0.95);
             backdrop-filter: blur(20px);
             border-radius: 20px;
             padding: 30px;
@@ -745,19 +944,41 @@
                 grid-template-columns: 1fr;
             }
             
-            .form-actions {
-                justify-content: center;
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .header-actions {
+                margin-left: 0;
+                width: 100%;
             }
             
             .btn {
                 width: 100%;
                 justify-content: center;
             }
+            
+            .form-actions {
+                justify-content: center;
+            }
+            
+            .data-table th,
+            .data-table td {
+                padding: 10px;
+                font-size: 14px;
+            }
         }
 
         /* Hidden */
         .hidden {
             display: none;
+        }
+
+        /* Animation Classes */
+        .animate__fadeIn {
+            animation-duration: 0.5s;
         }
     </style>
 
@@ -829,6 +1050,23 @@
         // Set today's date as default
         document.getElementById('date_in').value = new Date().toISOString().split('T')[0];
 
+        // Scroll to recent stock ins
+        function showRecentStockIns() {
+            const recentSection = document.querySelector('.form-container:last-child');
+            if (recentSection) {
+                recentSection.scrollIntoView({ behavior: 'smooth' });
+                recentSection.style.animation = 'pulse 2s';
+                setTimeout(() => {
+                    recentSection.style.animation = '';
+                }, 2000);
+            }
+        }
+
+        // Refresh stock ins
+        function refreshStockIns() {
+            location.reload();
+        }
+
         // Auto-refresh every 60 seconds
         setInterval(() => {
             location.reload();
@@ -862,6 +1100,6 @@
             }
         });
     </script>
-        <script src="{% static 'js/inventory_dashboard.js' %}"></script>
+    <script src="{% static 'js/inventory_dashboard.js' %}"></script>
 </body>
 </html>
